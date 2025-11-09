@@ -1,0 +1,57 @@
+import { sql } from "@/lib/db"
+import { DashboardLayout } from "@/components/dashboard-layout"
+import { InvoiceForm } from "@/components/invoice-form"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { AlertCircle } from "lucide-react"
+
+export default async function NewInvoicePage() {
+  try {
+    const [clients, profile] = await Promise.all([
+      sql`SELECT * FROM clients ORDER BY name ASC`,
+      sql`SELECT * FROM profiles LIMIT 1`.then((rows) => rows[0] || null),
+    ])
+
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Create Invoice</h1>
+            <p className="text-muted-foreground">Fill in the details to generate a new invoice</p>
+          </div>
+
+          <InvoiceForm clients={clients} profile={profile} />
+        </div>
+      </DashboardLayout>
+    )
+  } catch (error: any) {
+    if (error.message?.includes("does not exist")) {
+      return (
+        <DashboardLayout>
+          <div className="space-y-6">
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Database Setup Required</AlertTitle>
+              <AlertDescription>
+                The database tables haven't been created yet. Please run the SQL script{" "}
+                <code className="bg-muted px-1 py-0.5 rounded">scripts/001_create_neon_schema.sql</code> to set up your
+                database.
+              </AlertDescription>
+            </Alert>
+          </div>
+        </DashboardLayout>
+      )
+    }
+
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>Failed to load data: {error.message}</AlertDescription>
+          </Alert>
+        </div>
+      </DashboardLayout>
+    )
+  }
+}
