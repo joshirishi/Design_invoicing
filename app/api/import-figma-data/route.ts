@@ -4,7 +4,6 @@ import { NextResponse } from "next/server"
 export async function GET() {
   try {
     // First, update the profile with Rishikesh's actual business details
-    // Using only columns that exist in the schema: business_name, email, phone, address, city, state, postal_code, country, tax_id
     await sql`
       UPDATE profiles SET
         business_name = 'RISHIKESH JOSHI',
@@ -15,11 +14,16 @@ export async function GET() {
         state = 'Maharashtra',
         postal_code = '411057',
         country = 'India',
-        tax_id = '27AGSPJ2168A1ZF'
+        tax_id = '27AGSPJ2168A1ZF',
+        gstin = '27AGSPJ2168A1ZF',
+        pan = 'AGSPJ2168A',
+        bank_name = 'ICICI Bank',
+        bank_account = '056901504485',
+        bank_ifsc = 'ICIC0000569'
       WHERE id = (SELECT id FROM profiles LIMIT 1)
     `
 
-    // Create clients - using only columns that exist: name, email, phone, address, city, state, postal_code, country
+    // Create clients with GSTIN
     const clients = [
       {
         name: 'Terabyte Technologies Pvt. Ltd.',
@@ -29,7 +33,8 @@ export async function GET() {
         city: 'Bangalore',
         state: 'Karnataka',
         postal_code: '560102',
-        country: 'India'
+        country: 'India',
+        gstin: '29AAKCT0628A1ZJ'
       },
       {
         name: 'Infinity Labs Limited',
@@ -39,7 +44,8 @@ export async function GET() {
         city: 'Pune',
         state: 'Maharashtra',
         postal_code: '411045',
-        country: 'India'
+        country: 'India',
+        gstin: '27AAFCI3574B1ZQ'
       },
       {
         name: 'Scoredata Inc.',
@@ -49,7 +55,8 @@ export async function GET() {
         city: 'Palo Alto',
         state: 'CA',
         postal_code: '94306',
-        country: 'USA'
+        country: 'USA',
+        gstin: ''
       },
       {
         name: 'Joulesstowatts Business Solutions Pvt. Ltd.',
@@ -59,7 +66,8 @@ export async function GET() {
         city: 'Bengaluru',
         state: 'Karnataka',
         postal_code: '560103',
-        country: 'India'
+        country: 'India',
+        gstin: '29AADCJ4029L1ZA'
       }
     ]
 
@@ -74,8 +82,8 @@ export async function GET() {
         clientIds[client.name] = existing[0].id
       } else {
         const result = await sql`
-          INSERT INTO clients (name, email, phone, address, city, state, postal_code, country)
-          VALUES (${client.name}, ${client.email}, ${client.phone}, ${client.address}, ${client.city}, ${client.state}, ${client.postal_code}, ${client.country})
+          INSERT INTO clients (name, email, phone, address, city, state, postal_code, country, gstin)
+          VALUES (${client.name}, ${client.email}, ${client.phone}, ${client.address}, ${client.city}, ${client.state}, ${client.postal_code}, ${client.country}, ${client.gstin})
           RETURNING id
         `
         if (result.length > 0) {
@@ -84,8 +92,7 @@ export async function GET() {
       }
     }
 
-    // Define invoices from the PDF
-    // Using only columns that exist: invoice_number, client_id, issue_date, due_date, items, subtotal, tax, total, status, notes
+    // Define invoices from the PDF with tax_rate
     const invoices = [
       {
         invoice_number: 'RISHI-2324-07',
@@ -94,6 +101,7 @@ export async function GET() {
         due_date: '2024-01-07',
         items: [{ description: 'UX Consultancy for Terra Game Platform', sac: '998314', quantity: 1, rate: 250000 }],
         subtotal: 250000,
+        tax_rate: 18,
         tax: 45000,
         total: 295000,
         status: 'paid'
@@ -105,6 +113,7 @@ export async function GET() {
         due_date: '2024-02-07',
         items: [{ description: 'UX Consultancy for Terra Game Platform', sac: '998314', quantity: 1, rate: 234000 }],
         subtotal: 234000,
+        tax_rate: 18,
         tax: 42120,
         total: 276120,
         status: 'paid'
@@ -116,6 +125,7 @@ export async function GET() {
         due_date: '2024-09-30',
         items: [{ description: 'PPT Creation for Automanix - 27 pages', sac: '998314', quantity: 1, rate: 27000 }],
         subtotal: 27000,
+        tax_rate: 18,
         tax: 4860,
         total: 31860,
         status: 'paid'
@@ -127,6 +137,7 @@ export async function GET() {
         due_date: '2024-09-30',
         items: [{ description: 'UX and UI Design for GenAI base ChatUI', sac: '998314', quantity: 1, rate: 62500 }],
         subtotal: 62500,
+        tax_rate: 0,
         tax: 0,
         total: 62500,
         status: 'sent',
@@ -139,6 +150,7 @@ export async function GET() {
         due_date: '2024-10-08',
         items: [{ description: 'Payment For 2 Sep 2024 to 30th Sep, 2024', hsn: '998314', quantity: 1, rate: 287583 }],
         subtotal: 287583,
+        tax_rate: 18,
         tax: 51764,
         total: 339347,
         status: 'paid'
@@ -150,6 +162,7 @@ export async function GET() {
         due_date: '2024-11-06',
         items: [{ description: 'Payment For 1 Oct 2024 to 31 Oct 2024', hsn: '998314', quantity: 1, rate: 292702 }],
         subtotal: 292702,
+        tax_rate: 18,
         tax: 52686,
         total: 345388,
         status: 'paid'
@@ -161,6 +174,7 @@ export async function GET() {
         due_date: '2024-12-09',
         items: [{ description: 'Payment For 1 Nov 2024 to 30 Nov 2024', hsn: '998314', quantity: 1, rate: 277667 }],
         subtotal: 277667,
+        tax_rate: 18,
         tax: 49980,
         total: 327647,
         status: 'paid'
@@ -172,6 +186,7 @@ export async function GET() {
         due_date: '2025-01-10',
         items: [{ description: 'Payment For 1 Dec 2024 to 31 Dec 2024', hsn: '998314', quantity: 1, rate: 278307 }],
         subtotal: 278307,
+        tax_rate: 18,
         tax: 50095,
         total: 328402,
         status: 'sent'
@@ -183,6 +198,7 @@ export async function GET() {
         due_date: '2024-11-08',
         items: [{ description: 'UX and UI Design for GenAI base ChatUI - RoKhanna', sac: '998314', quantity: 1, rate: 62500 }],
         subtotal: 62500,
+        tax_rate: 0,
         tax: 0,
         total: 62500,
         status: 'paid',
@@ -209,7 +225,7 @@ export async function GET() {
         await sql`
           INSERT INTO invoices (
             invoice_number, client_id, issue_date, due_date, items, 
-            subtotal, tax, total, status, notes
+            subtotal, tax_rate, tax, total, status, notes
           )
           VALUES (
             ${invoice.invoice_number}, 
@@ -218,6 +234,7 @@ export async function GET() {
             ${invoice.due_date}, 
             ${JSON.stringify(invoice.items)}, 
             ${invoice.subtotal}, 
+            ${invoice.tax_rate},
             ${invoice.tax}, 
             ${invoice.total}, 
             ${invoice.status},
