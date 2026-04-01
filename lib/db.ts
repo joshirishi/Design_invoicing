@@ -1,27 +1,15 @@
-import { neon, NeonQueryFunction } from "@neondatabase/serverless"
+import { neon } from "@neondatabase/serverless"
 
-// Lazy initialization to ensure environment variable is available
-let _sql: NeonQueryFunction<false, false> | null = null
+// Create a Neon SQL client using the DATABASE_URL environment variable
+const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL
 
-export function getSql() {
-  if (!_sql) {
-    const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL
-    if (!connectionString) {
-      throw new Error("No database connection string found. Please check your Neon integration.")
-    }
-    _sql = neon(connectionString)
-  }
-  return _sql
+if (!connectionString) {
+  console.warn("No database connection string found. Database operations will fail.")
 }
 
-// For backward compatibility - creates client on first use
-export const sql = new Proxy({} as NeonQueryFunction<false, false>, {
-  apply: (_, __, args) => getSql()(...args),
-  get: (_, prop) => {
-    const client = getSql()
-    return (client as any)[prop]
-  }
-})
+export const sql = connectionString ? neon(connectionString) : (() => {
+  throw new Error("No database connection string found. Please check your Neon integration.")
+}) as any
 
 // Helper function for client-side database operations via API routes
 export async function fetchFromAPI(endpoint: string, options?: RequestInit) {
