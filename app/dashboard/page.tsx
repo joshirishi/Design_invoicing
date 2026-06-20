@@ -67,7 +67,7 @@ export default async function DashboardPage() {
     const totalRevenue = paymentsResult.reduce((sum, payment) => sum + Number(payment.amount), 0)
     const totalOutstanding = invoices
       .filter((inv: any) => inv.status === "unpaid" || inv.status === "overdue")
-      .reduce((sum: number, inv: any) => sum + Number(inv.total), 0)
+      .reduce((sum: number, inv: any) => sum + Number(inv.total_amount), 0)
 
     // Calculate monthly revenue for chart
     const monthlyRevenue = paymentsResult.reduce(

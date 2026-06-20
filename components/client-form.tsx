@@ -27,10 +27,6 @@ export function ClientForm({ client }: ClientFormProps) {
     phone: client?.phone || "",
     address: client?.address || "",
     gstin: client?.gstin || "",
-    city: client?.city || "",
-    state: client?.state || "",
-    postal_code: client?.postal_code || "",
-    country: client?.country || "",
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -39,36 +35,23 @@ export function ClientForm({ client }: ClientFormProps) {
     setError(null)
 
     try {
+      const payload = {
+        name: formData.name,
+        email: formData.email || null,
+        phone: formData.phone || null,
+        address: formData.address || null,
+        gstin: formData.gstin || null,
+      }
+
       if (client) {
-        // Update existing client
         await fetchFromAPI("/api/clients", {
           method: "PUT",
-          body: JSON.stringify({
-            id: client.id,
-            name: formData.name,
-            email: formData.email || null,
-            phone: formData.phone || null,
-            address: formData.address || null,
-            city: formData.city || null,
-            state: formData.state || null,
-            postal_code: formData.postal_code || null,
-            country: formData.country || null,
-          }),
+          body: JSON.stringify({ id: client.id, ...payload }),
         })
       } else {
-        // Create new client
         await fetchFromAPI("/api/clients", {
           method: "POST",
-          body: JSON.stringify({
-            name: formData.name,
-            email: formData.email || null,
-            phone: formData.phone || null,
-            address: formData.address || null,
-            city: formData.city || null,
-            state: formData.state || null,
-            postal_code: formData.postal_code || null,
-            country: formData.country || null,
-          }),
+          body: JSON.stringify(payload),
         })
       }
 
@@ -144,48 +127,6 @@ export function ClientForm({ client }: ClientFormProps) {
                 onChange={(e) => setFormData({ ...formData, gstin: e.target.value })}
                 placeholder="27AAGCC1503R1ZH"
               />
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="city">City</Label>
-                <Input
-                  id="city"
-                  value={formData.city}
-                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                  placeholder="City"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="state">State</Label>
-                <Input
-                  id="state"
-                  value={formData.state}
-                  onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                  placeholder="State"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="postal_code">Postal Code</Label>
-                <Input
-                  id="postal_code"
-                  value={formData.postal_code}
-                  onChange={(e) => setFormData({ ...formData, postal_code: e.target.value })}
-                  placeholder="Postal Code"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="country">Country</Label>
-                <Input
-                  id="country"
-                  value={formData.country}
-                  onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                  placeholder="Country"
-                />
-              </div>
             </div>
           </CardContent>
         </Card>

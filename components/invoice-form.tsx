@@ -61,27 +61,19 @@ export function InvoiceForm({ clients, profile }: InvoiceFormProps) {
       const invoiceData = {
         client_id: Number(formData.client_id),
         invoice_number: formData.invoice_number,
-        issue_date: formData.invoice_date,
-        due_date: new Date(
-          new Date(formData.invoice_date).getTime() + Number(formData.payment_due_days) * 24 * 60 * 60 * 1000,
-        )
-          .toISOString()
-          .split("T")[0],
-        status: "draft",
-        subtotal: Number(formData.amount_before_tax),
-        tax: cgstAmount + sgstAmount,
-        total: totalAmount,
-        notes: formData.terms,
-        items: JSON.stringify([
-          {
-            description: formData.description,
-            hsn_code: formData.hsn_code,
-            service_date: formData.service_date,
-            amount: Number(formData.amount_before_tax),
-            cgst_rate: Number(formData.cgst_rate),
-            sgst_rate: Number(formData.sgst_rate),
-          },
-        ]),
+        invoice_date: formData.invoice_date,
+        service_date: formData.service_date || null,
+        description: formData.description,
+        hsn_code: formData.hsn_code || null,
+        amount_before_tax: Number(formData.amount_before_tax),
+        cgst_rate: Number(formData.cgst_rate),
+        sgst_rate: Number(formData.sgst_rate),
+        cgst_amount: cgstAmount,
+        sgst_amount: sgstAmount,
+        total_amount: totalAmount,
+        terms: formData.terms || null,
+        status: "unpaid",
+        payment_due_days: Number(formData.payment_due_days),
       }
 
       const result = await fetchFromAPI("/api/invoices", {
