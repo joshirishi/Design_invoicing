@@ -1,23 +1,25 @@
-'use client'
+"use client"
 
-import { StackProvider, SignIn } from "@stackframe/stack"
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { FileText } from "lucide-react"
 
+// Stack Auth is not yet configured — redirect straight to dashboard.
+// When NEXT_PUBLIC_STACK_PROJECT_ID is added to env vars, replace this
+// with StackProvider + SignIn from @stackframe/stack.
 export default function LoginPage() {
+  const router = useRouter()
+
+  useEffect(() => {
+    router.replace("/dashboard")
+  }, [router])
+
   return (
-    <StackProvider>
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-background to-muted p-4">
-        <div className="w-full max-w-md space-y-8">
-          <div className="text-center space-y-2">
-            <h1 className="text-3xl font-serif font-bold text-foreground">
-              Invoice Management
-            </h1>
-            <p className="text-muted-foreground">
-              Sign in with Google to access your invoicing dashboard
-            </p>
-          </div>
-          <SignIn />
-        </div>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-background to-muted">
+      <div className="flex flex-col items-center gap-4 text-muted-foreground">
+        <FileText className="h-10 w-10 animate-pulse" />
+        <p className="text-sm">Loading InvoiceFlow…</p>
       </div>
-    </StackProvider>
+    </div>
   )
 }
