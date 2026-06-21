@@ -1,5 +1,6 @@
 export interface Profile {
   id: string
+  org_id: number
   full_name: string | null
   email: string | null
   phone: string | null
@@ -19,7 +20,7 @@ export interface Profile {
 
 export interface Client {
   id: string
-  user_id: string
+  org_id: number
   name: string
   email: string | null
   phone: string | null
@@ -31,7 +32,7 @@ export interface Client {
 
 export interface Invoice {
   id: string
-  user_id: string
+  org_id: number
   client_id: string
   invoice_number: string
   invoice_date: string
@@ -47,6 +48,7 @@ export interface Invoice {
   terms: string | null
   status: "paid" | "unpaid" | "partially_paid" | "overdue"
   payment_due_days: number
+  sent_at: string | null
   created_at: string
   updated_at: string
   client?: Client
@@ -54,7 +56,7 @@ export interface Invoice {
 
 export interface Payment {
   id: string
-  user_id: string
+  org_id: number
   invoice_id: string | null
   client_id: string | null
   amount: number
@@ -65,11 +67,13 @@ export interface Payment {
   reconciled: boolean
   created_at: string
   updated_at: string
+  invoice?: Partial<Invoice>
+  client?: Partial<Client>
 }
 
 export interface BankTransaction {
   id: string
-  user_id: string
+  org_id: number
   transaction_date: string
   description: string | null
   reference_number: string | null
@@ -78,5 +82,42 @@ export interface BankTransaction {
   balance: number | null
   reconciled: boolean
   payment_id: string | null
+  created_at: string
+  payment?: Partial<Payment>
+}
+
+export interface Purchase {
+  id: string
+  org_id: number
+  vendor_name: string
+  vendor_gstin: string | null
+  invoice_date: string
+  invoice_number: string | null
+  description: string | null
+  amount: number
+  cgst: number
+  sgst: number
+  igst: number
+  total_with_tax: number
+  created_at: string
+  updated_at: string
+}
+
+export interface Organization {
+  id: number
+  name: string
+  gstin: string | null
+  plan: string
+  created_at: string
+}
+
+export interface OrgMember {
+  id: string
+  org_id: number
+  user_id: string | null
+  role: string
+  invited_email: string | null
+  invite_token: string | null
+  status: string
   created_at: string
 }

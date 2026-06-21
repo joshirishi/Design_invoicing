@@ -1,22 +1,38 @@
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { BankStatementUpload } from "@/components/bank-statement-upload"
 import { ReconciliationView } from "@/components/reconciliation-view"
+import { sql } from "@/lib/db"
+import { getCurrentOrgId } from "@/lib/get-org"
+
+export const dynamic = "force-dynamic"
 
 async function getReconciliationData() {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-
-    const [transactionsRes, paymentsRes] = await Promise.all([
-      fetch(`${baseUrl}/api/bank-transactions`, { cache: "no-store" }),
-      fetch(`${baseUrl}/api/payments?unreconciled=true`, { cache: "no-store" }),
+    const orgId = await getCurrentOrgId()
+    const [transactions, payments] = await Promise.all([
+      sql`
+        SELECT bt.*,
+               CASE WHEN p.id IS NOT NULL THEN
+                 json_build_object('id', p.id, 'amount', p.amount,
+                   'invoice', json_build_object('invoice_number', i.invoice_number))
+               ELSE NULL END as payment
+        FROM bank_transactions bt
+        LEFT JOIN payments p ON bt.payment_id = p.id
+        LEFT JOIN invoices i ON p.invoice_id = i.id
+        WHERE bt.org_id = ${orgId}
+        ORDER BY bt.transaction_date DESC
+      `,
+      sql`
+        SELECT p.*, json_build_object('id', i.id, 'invoice_number', i.invoice_number) as invoice
+        FROM payments p
+        LEFT JOIN invoices i ON p.invoice_id = i.id
+        WHERE p.org_id = ${orgId} AND p.reconciled = false
+        ORDER BY p.payment_date DESC
+      `,
     ])
-
-    const transactions = transactionsRes.ok ? await transactionsRes.json() : []
-    const payments = paymentsRes.ok ? await paymentsRes.json() : []
-
     return { transactions, payments }
   } catch (error) {
-    console.error("[v0] Error fetching reconciliation data:", error)
+    console.error("[reconciliation] Error:", error)
     return { transactions: [], payments: [] }
   }
 }

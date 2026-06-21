@@ -1,59 +1,54 @@
+import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
-import { NextResponse } from "next/server"
+import { getCurrentOrgId } from "@/lib/get-org"
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const orgId = await getCurrentOrgId()
+    const { searchParams } = new URL(request.url)
+    const unreconciled = searchParams.get("unreconciled") === "true"
+
     const payments = await sql`
-      SELECT p.*, 
+      SELECT p.*,
              json_build_object(
                'id', i.id,
                'invoice_number', i.invoice_number,
-               'subtotal', i.subtotal,
-               'tax', i.tax,
-               'total', i.total
+               'total_amount', i.total_amount,
+               'amount_before_tax', i.amount_before_tax
              ) as invoice,
-             json_build_object(
-               'id', c.id,
-               'name', c.name
-             ) as client
+             json_build_object('id', c.id, 'name', c.name) as client
       FROM payments p
       LEFT JOIN invoices i ON p.invoice_id = i.id
       LEFT JOIN clients c ON i.client_id = c.id
+      WHERE p.org_id = ${orgId}
+        AND ${unreconciled ? sql`p.reconciled = false` : sql`true`}
       ORDER BY p.payment_date DESC
     `
-
     return NextResponse.json(payments)
-  } catch (error) {
-    console.error("Error fetching payments:", error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to fetch payments" },
-      { status: 500 },
-    )
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const orgId = await getCurrentOrgId()
     const data = await request.json()
 
     const result = await sql`
       INSERT INTO payments (
-        invoice_id, amount, payment_date, payment_method, 
-        reference_number, notes, reconciled
+        org_id, invoice_id, client_id, amount, payment_date,
+        payment_method, reference_number, notes, reconciled
       )
       VALUES (
-        ${data.invoice_id}, ${data.amount}, ${data.payment_date}, 
-        ${data.payment_method}, ${data.reference_number}, ${data.notes}, false
+        ${orgId}, ${data.invoice_id}, ${data.client_id || null},
+        ${data.amount}, ${data.payment_date}, ${data.payment_method || null},
+        ${data.reference_number || null}, ${data.notes || null}, false
       )
       RETURNING *
     `
-
     return NextResponse.json(result[0])
-  } catch (error) {
-    console.error("Error creating payment:", error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to create payment" },
-      { status: 500 },
-    )
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

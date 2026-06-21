@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic"
+
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { GSTReportView } from "@/components/gst-report-view"
 import { GSTOptInBanner } from "@/components/gst-opt-in-banner"

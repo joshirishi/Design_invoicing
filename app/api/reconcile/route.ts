@@ -6,20 +6,15 @@ export async function POST(request: Request) {
   try {
     const { transactionId, paymentId } = await request.json()
 
-    // Update bank transaction
     await sql`
-      UPDATE bank_transactions 
-      SET reconciled = true, 
-          matched_payment_id = ${paymentId},
-          updated_at = NOW()
+      UPDATE bank_transactions
+      SET reconciled = true, payment_id = ${paymentId}
       WHERE id = ${transactionId}
     `
 
-    // Update payment
     await sql`
-      UPDATE payments 
-      SET reconciled = true,
-          updated_at = NOW()
+      UPDATE payments
+      SET reconciled = true, updated_at = NOW()
       WHERE id = ${paymentId}
     `
 
@@ -35,21 +30,16 @@ export async function DELETE(request: Request) {
   try {
     const { transactionId, paymentId } = await request.json()
 
-    // Update bank transaction
     await sql`
-      UPDATE bank_transactions 
-      SET reconciled = false, 
-          matched_payment_id = NULL,
-          updated_at = NOW()
+      UPDATE bank_transactions
+      SET reconciled = false, payment_id = NULL
       WHERE id = ${transactionId}
     `
 
-    // Update payment if provided
     if (paymentId) {
       await sql`
-        UPDATE payments 
-        SET reconciled = false,
-            updated_at = NOW()
+        UPDATE payments
+        SET reconciled = false, updated_at = NOW()
         WHERE id = ${paymentId}
       `
     }

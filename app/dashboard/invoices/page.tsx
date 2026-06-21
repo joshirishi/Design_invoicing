@@ -6,14 +6,16 @@ import Link from "next/link"
 import { InvoiceList } from "@/components/invoice-list"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
+export const dynamic = "force-dynamic"
+
 export default async function InvoicesPage() {
   try {
     const invoices = await sql`
-      SELECT i.*, 
-             json_build_object('id', c.id, 'name', c.name, 'email', c.email) as client
+      SELECT i.*,
+             json_build_object('id', c.id, 'name', c.name, 'email', c.email, 'gstin', c.gstin) as client
       FROM invoices i
       LEFT JOIN clients c ON i.client_id = c.id
-      ORDER BY i.issue_date DESC
+      ORDER BY i.invoice_date DESC
     `
 
     return (

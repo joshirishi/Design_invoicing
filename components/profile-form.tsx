@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { fetchFromAPI } from "@/lib/db"
@@ -10,13 +9,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { CheckCircle2 } from "lucide-react"
 import type { Profile } from "@/lib/types"
 
 interface ProfileFormProps {
   profile: Profile | null
+  section?: "profile" | "bank" | "tax"
 }
 
-export function ProfileForm({ profile }: ProfileFormProps) {
+export function ProfileForm({ profile, section = "profile" }: ProfileFormProps) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -38,6 +39,9 @@ export function ProfileForm({ profile }: ProfileFormProps) {
     bank_address: profile?.bank_address || "",
   })
 
+  const set = (key: keyof typeof formData) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setFormData((prev) => ({ ...prev, [key]: e.target.value }))
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
@@ -45,210 +49,141 @@ export function ProfileForm({ profile }: ProfileFormProps) {
     setSuccess(false)
 
     try {
-      await fetchFromAPI("/api/profile", {
-        method: "PUT",
-        body: JSON.stringify({
-          id: profile?.id || 1,
-          ...formData,
-        }),
-      })
-
+      if (!profile?.id) {
+        await fetchFromAPI("/api/profile", { method: "POST", body: JSON.stringify(formData) })
+      } else {
+        await fetchFromAPI("/api/profile", {
+          method: "PUT",
+          body: JSON.stringify({ id: profile.id, ...formData }),
+        })
+      }
       setSuccess(true)
       router.refresh()
+      setTimeout(() => setSuccess(false), 3000)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save profile")
+      setError(err instanceof Error ? err.message : "Failed to save")
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <form onSubmit={handleSubmit}>
-      <div className="max-w-4xl space-y-6">
+    <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
+      {section === "profile" && (
         <Card>
           <CardHeader>
             <CardTitle>Personal Information</CardTitle>
-            <CardDescription>This information will appear on your invoices</CardDescription>
+            <CardDescription>Appears on your invoices as the service provider</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="full_name">Full Name</Label>
-                <Input
-                  id="full_name"
-                  value={formData.full_name}
-                  onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                  placeholder="Your full name"
-                />
+                <Label htmlFor="full_name">Full Name *</Label>
+                <Input id="full_name" value={formData.full_name} onChange={set("full_name")} placeholder="Rishikesh Joshi" required />
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="your@email.com"
-                />
+                <Input id="email" type="email" value={formData.email} onChange={set("email")} placeholder="you@example.com" />
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="+91-1234567890"
-                />
+                <Input id="phone" type="tel" value={formData.phone} onChange={set("phone")} placeholder="+91 98765 43210" />
               </div>
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="address">Address</Label>
-              <Textarea
-                id="address"
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                placeholder="Your business address"
-                rows={3}
-              />
+              <Label htmlFor="address">Business Address</Label>
+              <Textarea id="address" value={formData.address} onChange={set("address")} placeholder="Flat No, Street, City, State, PIN" rows={3} />
             </div>
           </CardContent>
         </Card>
+      )}
 
+      {section === "tax" && (
         <Card>
           <CardHeader>
-            <CardTitle>Tax Information</CardTitle>
-            <CardDescription>GST and PAN details for invoicing</CardDescription>
+            <CardTitle>Tax Details</CardTitle>
+            <CardDescription>GSTIN and PAN printed on every invoice</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="gstin">GSTIN</Label>
                 <Input
-                  id="gstin"
-                  value={formData.gstin}
-                  onChange={(e) => setFormData({ ...formData, gstin: e.target.value })}
-                  placeholder="27AGSPJ2168A1ZF"
+                  id="gstin" value={formData.gstin}
+                  onChange={(e) => setFormData((p) => ({ ...p, gstin: e.target.value.toUpperCase() }))}
+                  placeholder="27AGSPJ2168A1ZF" maxLength={15}
                 />
+                <p className="text-xs text-muted-foreground">15-character GST Identification Number</p>
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="pan_no">PAN Number</Label>
                 <Input
-                  id="pan_no"
-                  value={formData.pan_no}
-                  onChange={(e) => setFormData({ ...formData, pan_no: e.target.value })}
-                  placeholder="AGSPJ2168A"
+                  id="pan_no" value={formData.pan_no}
+                  onChange={(e) => setFormData((p) => ({ ...p, pan_no: e.target.value.toUpperCase() }))}
+                  placeholder="AGSPJ2168A" maxLength={10}
                 />
               </div>
             </div>
           </CardContent>
         </Card>
+      )}
 
+      {section === "bank" && (
         <Card>
           <CardHeader>
             <CardTitle>Bank Details</CardTitle>
-            <CardDescription>Payment information for your invoices</CardDescription>
+            <CardDescription>Printed at the bottom of every invoice for client payments</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="bank_name">Bank Name</Label>
-                <Input
-                  id="bank_name"
-                  value={formData.bank_name}
-                  onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
-                  placeholder="ICICI Bank"
-                />
+                <Input id="bank_name" value={formData.bank_name} onChange={set("bank_name")} placeholder="ICICI Bank" />
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="account_name">Account Name</Label>
-                <Input
-                  id="account_name"
-                  value={formData.account_name}
-                  onChange={(e) => setFormData({ ...formData, account_name: e.target.value })}
-                  placeholder="Your Name"
-                />
+                <Input id="account_name" value={formData.account_name} onChange={set("account_name")} placeholder="Rishikesh Joshi" />
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="account_number">Account Number</Label>
-                <Input
-                  id="account_number"
-                  value={formData.account_number}
-                  onChange={(e) => setFormData({ ...formData, account_number: e.target.value })}
-                  placeholder="056901504485"
-                />
+                <Input id="account_number" value={formData.account_number} onChange={set("account_number")} placeholder="056901504485" />
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="ifsc_code">IFSC Code</Label>
                 <Input
-                  id="ifsc_code"
-                  value={formData.ifsc_code}
-                  onChange={(e) => setFormData({ ...formData, ifsc_code: e.target.value })}
+                  id="ifsc_code" value={formData.ifsc_code}
+                  onChange={(e) => setFormData((p) => ({ ...p, ifsc_code: e.target.value.toUpperCase() }))}
                   placeholder="ICIC0000570"
                 />
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="swift_code">Swift Code (Optional)</Label>
-                <Input
-                  id="swift_code"
-                  value={formData.swift_code}
-                  onChange={(e) => setFormData({ ...formData, swift_code: e.target.value })}
-                  placeholder="ICIC0000569"
-                />
-              </div>
-
               <div className="space-y-2">
                 <Label htmlFor="branch">Branch</Label>
-                <Input
-                  id="branch"
-                  value={formData.branch}
-                  onChange={(e) => setFormData({ ...formData, branch: e.target.value })}
-                  placeholder="Hinjewadi Phase 1"
-                />
+                <Input id="branch" value={formData.branch} onChange={set("branch")} placeholder="Hinjewadi Phase 1" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="swift_code">Swift Code</Label>
+                <Input id="swift_code" value={formData.swift_code} onChange={set("swift_code")} placeholder="ICICINBB (optional)" />
               </div>
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="bank_address">Bank Address</Label>
-              <Textarea
-                id="bank_address"
-                value={formData.bank_address}
-                onChange={(e) => setFormData({ ...formData, bank_address: e.target.value })}
-                placeholder="Full bank branch address"
-                rows={2}
-              />
+              <Label htmlFor="bank_address">Bank Branch Address</Label>
+              <Textarea id="bank_address" value={formData.bank_address} onChange={set("bank_address")} placeholder="Full branch address" rows={2} />
             </div>
           </CardContent>
         </Card>
+      )}
 
-        {error && (
-          <Card className="border-destructive">
-            <CardContent className="pt-6">
-              <p className="text-sm text-destructive">{error}</p>
-            </CardContent>
-          </Card>
-        )}
+      {error && <p className="text-sm text-destructive">{error}</p>}
 
-        {success && (
-          <Card className="border-green-500">
-            <CardContent className="pt-6">
-              <p className="text-sm text-green-700 dark:text-green-400">Profile updated successfully!</p>
-            </CardContent>
-          </Card>
-        )}
+      {success && (
+        <p className="text-sm text-green-600 flex items-center gap-1.5">
+          <CheckCircle2 className="h-4 w-4" /> Saved successfully
+        </p>
+      )}
 
-        <Button type="submit" disabled={isLoading}>
-          {isLoading ? "Saving..." : "Save Changes"}
-        </Button>
-      </div>
+      <Button type="submit" disabled={isLoading}>
+        {isLoading ? "Saving..." : "Save Changes"}
+      </Button>
     </form>
   )
 }

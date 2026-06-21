@@ -1,12 +1,14 @@
 "use client"
 
+import { useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Download, Printer } from "lucide-react"
+import { Download, Printer, Send, Loader2, CheckCircle2 } from "lucide-react"
 import Link from "next/link"
 import type { Invoice, Profile } from "@/lib/types"
 import { numberToWords } from "@/lib/utils/number-to-words"
+import { fetchFromAPI } from "@/lib/db"
 
 interface InvoiceViewProps {
   invoice: Invoice
@@ -14,45 +16,67 @@ interface InvoiceViewProps {
 }
 
 export function InvoiceView({ invoice, profile }: InvoiceViewProps) {
+  const [sending, setSending] = useState(false)
+  const [sent, setSent] = useState(false)
+  const [sendError, setSendError] = useState<string | null>(null)
+
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "paid":
-        return "bg-green-500/10 text-green-700 dark:text-green-400"
-      case "unpaid":
-        return "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400"
-      case "overdue":
-        return "bg-red-500/10 text-red-700 dark:text-red-400"
-      case "partially_paid":
-        return "bg-blue-500/10 text-blue-700 dark:text-blue-400"
-      default:
-        return ""
+      case "paid": return "bg-green-500/10 text-green-700 dark:text-green-400"
+      case "unpaid": return "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400"
+      case "overdue": return "bg-red-500/10 text-red-700 dark:text-red-400"
+      case "partially_paid": return "bg-blue-500/10 text-blue-700 dark:text-blue-400"
+      default: return ""
     }
   }
 
-  const handlePrint = () => {
-    window.open(`/dashboard/invoices/${invoice.id}/pdf`, "_blank")
+  const handleSendEmail = async () => {
+    setSending(true)
+    setSendError(null)
+    try {
+      await fetchFromAPI(`/api/invoices/${invoice.id}/send`, { method: "POST" })
+      setSent(true)
+    } catch (err) {
+      setSendError(err instanceof Error ? err.message : "Failed to send email")
+    } finally {
+      setSending(false)
+    }
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{invoice.invoice_number}</h1>
           <p className="text-muted-foreground">Invoice Details</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handlePrint}>
+        <div className="flex gap-2 flex-wrap">
+          {invoice.client?.email && (
+            sent ? (
+              <Button variant="outline" disabled>
+                <CheckCircle2 className="h-4 w-4 mr-2 text-green-500" />
+                Email Sent
+              </Button>
+            ) : (
+              <Button variant="outline" onClick={handleSendEmail} disabled={sending}>
+                {sending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Sending…</> : <><Send className="h-4 w-4 mr-2" />Send to Client</>}
+              </Button>
+            )
+          )}
+          <Button variant="outline" onClick={() => window.open(`/dashboard/invoices/${invoice.id}/pdf`, "_blank")}>
             <Printer className="h-4 w-4 mr-2" />
             Print
           </Button>
           <Link href={`/dashboard/invoices/${invoice.id}/pdf`} target="_blank">
             <Button variant="outline">
               <Download className="h-4 w-4 mr-2" />
-              Download PDF
+              PDF
             </Button>
           </Link>
         </div>
       </div>
+      {sendError && <p className="text-sm text-destructive">{sendError}</p>}
+      {invoice.sent_at && <p className="text-xs text-muted-foreground">Last sent: {new Date(invoice.sent_at).toLocaleString("en-IN")}</p>}
 
       <Card className="p-8 max-w-4xl mx-auto">
         {/* Header */}

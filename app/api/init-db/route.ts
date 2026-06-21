@@ -7,15 +7,48 @@ export async function GET() {
   try {
     await sql`DROP TABLE IF EXISTS gst_ledger_entries CASCADE`
     await sql`DROP TABLE IF EXISTS gst_sync_logs CASCADE`
+    await sql`DROP TABLE IF EXISTS purchases CASCADE`
     await sql`DROP TABLE IF EXISTS bank_transactions CASCADE`
     await sql`DROP TABLE IF EXISTS payments CASCADE`
     await sql`DROP TABLE IF EXISTS invoices CASCADE`
     await sql`DROP TABLE IF EXISTS clients CASCADE`
     await sql`DROP TABLE IF EXISTS profiles CASCADE`
+    await sql`DROP TABLE IF EXISTS org_members CASCADE`
+    await sql`DROP TABLE IF EXISTS organizations CASCADE`
+
+    // Multi-tenant: each business is an organization
+    await sql`
+      CREATE TABLE organizations (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        gstin VARCHAR(100),
+        plan VARCHAR(50) DEFAULT 'free',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      )
+    `
+
+    await sql`
+      CREATE TABLE org_members (
+        id SERIAL PRIMARY KEY,
+        org_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE,
+        user_id VARCHAR(255),
+        role VARCHAR(50) NOT NULL DEFAULT 'member',
+        invited_email VARCHAR(255),
+        invite_token VARCHAR(255),
+        status VARCHAR(50) NOT NULL DEFAULT 'active',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      )
+    `
+
+    await sql`CREATE INDEX idx_org_members_user ON org_members(user_id)`
+    await sql`CREATE INDEX idx_org_members_org ON org_members(org_id)`
+    await sql`CREATE UNIQUE INDEX idx_org_members_token ON org_members(invite_token) WHERE invite_token IS NOT NULL`
 
     await sql`
       CREATE TABLE profiles (
         id SERIAL PRIMARY KEY,
+        org_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE,
         full_name VARCHAR(255),
         email VARCHAR(255),
         phone VARCHAR(50),
@@ -41,7 +74,7 @@ export async function GET() {
     await sql`
       CREATE TABLE clients (
         id SERIAL PRIMARY KEY,
-        user_id VARCHAR(255),
+        org_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE,
         name VARCHAR(255) NOT NULL,
         email VARCHAR(255),
         phone VARCHAR(50),
@@ -55,9 +88,9 @@ export async function GET() {
     await sql`
       CREATE TABLE invoices (
         id SERIAL PRIMARY KEY,
-        user_id VARCHAR(255),
+        org_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE,
         client_id INTEGER REFERENCES clients(id) ON DELETE CASCADE,
-        invoice_number VARCHAR(100) UNIQUE NOT NULL,
+        invoice_number VARCHAR(100) NOT NULL,
         invoice_date DATE NOT NULL,
         description TEXT NOT NULL,
         hsn_code VARCHAR(50),
@@ -71,15 +104,17 @@ export async function GET() {
         terms TEXT,
         status VARCHAR(50) NOT NULL DEFAULT 'unpaid',
         payment_due_days INTEGER NOT NULL DEFAULT 7,
+        sent_at TIMESTAMP WITH TIME ZONE,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        UNIQUE(org_id, invoice_number)
       )
     `
 
     await sql`
       CREATE TABLE payments (
         id SERIAL PRIMARY KEY,
-        user_id VARCHAR(255),
+        org_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE,
         invoice_id INTEGER REFERENCES invoices(id) ON DELETE CASCADE,
         client_id INTEGER REFERENCES clients(id) ON DELETE SET NULL,
         amount DECIMAL(12, 2) NOT NULL,
@@ -96,7 +131,7 @@ export async function GET() {
     await sql`
       CREATE TABLE bank_transactions (
         id SERIAL PRIMARY KEY,
-        user_id VARCHAR(255),
+        org_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE,
         transaction_date DATE NOT NULL,
         description TEXT,
         reference_number VARCHAR(255),
@@ -109,10 +144,30 @@ export async function GET() {
       )
     `
 
+    // Input GST — purchases/expenses with tax paid
+    await sql`
+      CREATE TABLE purchases (
+        id SERIAL PRIMARY KEY,
+        org_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE,
+        vendor_name VARCHAR(255) NOT NULL,
+        vendor_gstin VARCHAR(100),
+        invoice_date DATE NOT NULL,
+        invoice_number VARCHAR(100),
+        description TEXT,
+        amount DECIMAL(12, 2) NOT NULL DEFAULT 0,
+        cgst DECIMAL(12, 2) NOT NULL DEFAULT 0,
+        sgst DECIMAL(12, 2) NOT NULL DEFAULT 0,
+        igst DECIMAL(12, 2) NOT NULL DEFAULT 0,
+        total_with_tax DECIMAL(12, 2) NOT NULL DEFAULT 0,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      )
+    `
+
     await sql`
       CREATE TABLE gst_sync_logs (
         id SERIAL PRIMARY KEY,
-        profile_id INTEGER REFERENCES profiles(id) ON DELETE CASCADE,
+        org_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE,
         sync_type VARCHAR(50) NOT NULL,
         status VARCHAR(50) NOT NULL,
         records_synced INTEGER DEFAULT 0,
@@ -125,7 +180,7 @@ export async function GET() {
     await sql`
       CREATE TABLE gst_ledger_entries (
         id SERIAL PRIMARY KEY,
-        profile_id INTEGER REFERENCES profiles(id) ON DELETE CASCADE,
+        org_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE,
         entry_date DATE NOT NULL,
         entry_type VARCHAR(50) NOT NULL,
         description TEXT,
@@ -142,19 +197,26 @@ export async function GET() {
 
     await sql`CREATE INDEX idx_invoices_client_id ON invoices(client_id)`
     await sql`CREATE INDEX idx_invoices_status ON invoices(status)`
+    await sql`CREATE INDEX idx_invoices_org ON invoices(org_id)`
     await sql`CREATE INDEX idx_payments_invoice_id ON payments(invoice_id)`
     await sql`CREATE INDEX idx_payments_reconciled ON payments(reconciled)`
     await sql`CREATE INDEX idx_bank_transactions_reconciled ON bank_transactions(reconciled)`
     await sql`CREATE INDEX idx_bank_transactions_date ON bank_transactions(transaction_date)`
-    await sql`CREATE INDEX idx_gst_ledger_profile ON gst_ledger_entries(profile_id)`
-    await sql`CREATE INDEX idx_gst_sync_logs_profile ON gst_sync_logs(profile_id)`
+    await sql`CREATE INDEX idx_gst_ledger_org ON gst_ledger_entries(org_id)`
+    await sql`CREATE INDEX idx_gst_sync_logs_org ON gst_sync_logs(org_id)`
+    await sql`CREATE INDEX idx_purchases_org ON purchases(org_id)`
 
+    // Seed a default organization and profile for single-user mode
+    const org = await sql`
+      INSERT INTO organizations (name) VALUES ('My Business') RETURNING id
+    `
+    const orgId = org[0].id
     await sql`
-      INSERT INTO profiles (full_name, email, phone, address)
-      VALUES ('Your Name', 'you@example.com', '+91 00000 00000', 'Your Address, City, State')
+      INSERT INTO profiles (org_id, full_name, email, phone, address)
+      VALUES (${orgId}, 'Your Name', 'you@example.com', '+91 00000 00000', 'Your Address, City, State')
     `
 
-    return NextResponse.json({ success: true, message: "Database initialised with canonical schema" })
+    return NextResponse.json({ success: true, message: "Database initialised with multi-tenant schema", org_id: orgId })
   } catch (error) {
     console.error("[init-db] error:", error)
     return NextResponse.json(

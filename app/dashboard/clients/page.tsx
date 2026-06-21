@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic"
+
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
