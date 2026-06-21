@@ -1,43 +1,38 @@
-import { StackServerApp } from "@stackframe/stack";
-import { NextResponse } from "next/server";
+import { NextResponse } from "next/server"
 
-const stackServerApp = new StackServerApp({
-  projectId: process.env.NEXT_PUBLIC_STACK_PROJECT_ID!,
-  secretServerKey: process.env.STACK_SECRET_SERVER_KEY!,
-});
+const ALLOWED_EMAIL = "joshi.rishikesh@gmail.com"
 
-const ALLOWED_EMAIL = "joshi.rishikesh@gmail.com";
+export async function GET() {
+  const projectId = process.env.NEXT_PUBLIC_STACK_PROJECT_ID
 
-export async function GET(request: Request) {
+  // Stack Auth not configured — treat as authenticated in open mode
+  if (!projectId) {
+    return NextResponse.json({
+      authenticated: true,
+      user: { id: "local", email: ALLOWED_EMAIL, displayName: "Rishikesh Joshi" },
+    })
+  }
+
   try {
-    // Get the current user session
-    const user = await stackServerApp.getUser();
+    const { StackServerApp } = await import("@stackframe/stack")
+    const stackServerApp = new StackServerApp({
+      projectId,
+      secretServerKey: process.env.STACK_SECRET_SERVER_KEY!,
+    })
 
-    if (!user) {
-      return NextResponse.json({ authenticated: false }, { status: 401 });
-    }
+    const user = await stackServerApp.getUser()
 
-    // Check if the user's email matches the allowed email
+    if (!user) return NextResponse.json({ authenticated: false }, { status: 401 })
+
     if (user.email !== ALLOWED_EMAIL) {
-      return NextResponse.json(
-        {
-          error: "Unauthorized",
-          message: `Access denied. Only ${ALLOWED_EMAIL} can access this application.`,
-        },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 
     return NextResponse.json({
       authenticated: true,
-      user: {
-        id: user.id,
-        email: user.email,
-        displayName: user.displayName,
-      },
-    });
-  } catch (error) {
-    console.error("Auth check error:", error);
-    return NextResponse.json({ authenticated: false }, { status: 401 });
+      user: { id: user.id, email: user.email, displayName: user.displayName },
+    })
+  } catch {
+    return NextResponse.json({ authenticated: false }, { status: 401 })
   }
 }
