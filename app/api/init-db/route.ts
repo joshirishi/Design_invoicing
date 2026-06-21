@@ -5,6 +5,12 @@ import { NextResponse } from "next/server"
 // Safe to re-run — uses DROP IF EXISTS + CREATE IF NOT EXISTS.
 export async function GET() {
   try {
+    // If org already exists, schema is set up — just return the org id
+    const existing = await sql`SELECT id FROM organizations LIMIT 1`
+    if (existing.length > 0) {
+      return NextResponse.json({ success: true, message: "Database already initialised", org_id: existing[0].id })
+    }
+
     await sql`DROP TABLE IF EXISTS gst_ledger_entries CASCADE`
     await sql`DROP TABLE IF EXISTS gst_sync_logs CASCADE`
     await sql`DROP TABLE IF EXISTS purchases CASCADE`
