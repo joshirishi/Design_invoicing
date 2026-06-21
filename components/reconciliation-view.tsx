@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Check, X, Sparkles, Loader2 } from "lucide-react"
 import type { BankTransaction, Payment } from "@/lib/types"
-import { fetchFromAPI } from "@/lib/db"
+import { fetchFromAPI } from "@/lib/fetch"
 import { useRouter } from "next/navigation"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 

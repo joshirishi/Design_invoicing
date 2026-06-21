@@ -8,7 +8,7 @@ import { Download, Printer, Send, Loader2, CheckCircle2 } from "lucide-react"
 import Link from "next/link"
 import type { Invoice, Profile } from "@/lib/types"
 import { numberToWords } from "@/lib/utils/number-to-words"
-import { fetchFromAPI } from "@/lib/db"
+import { fetchFromAPI } from "@/lib/fetch"
 
 interface InvoiceViewProps {
   invoice: Invoice

@@ -6,7 +6,7 @@ import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Upload, FileText } from "lucide-react"
-import { fetchFromAPI } from "@/lib/db"
+import { fetchFromAPI } from "@/lib/fetch"
 import { useRouter } from "next/navigation"
 
 export function BankStatementUpload() {

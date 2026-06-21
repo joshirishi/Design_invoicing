@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { fetchFromAPI } from "@/lib/db"
+import { fetchFromAPI } from "@/lib/fetch"
 import { Calendar, TrendingUp, TrendingDown, ArrowRight, Download, ExternalLink, Loader2 } from "lucide-react"
 
 interface OutputRow { month: string; total_gst_collected: string; total_cgst: string; total_sgst: string; total_invoiced: string; invoice_count: string }

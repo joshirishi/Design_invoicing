@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Eye, Download, CheckCircle, Clock, AlertTriangle, Ban, Loader2, X } from "lucide-react"
 import Link from "next/link"
 import type { Invoice } from "@/lib/types"
-import { fetchFromAPI } from "@/lib/db"
+import { fetchFromAPI } from "@/lib/fetch"
 
 interface InvoiceListProps {
   invoices: Invoice[]

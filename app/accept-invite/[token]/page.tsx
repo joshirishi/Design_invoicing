@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic"
+
 import { sql } from "@/lib/db"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"

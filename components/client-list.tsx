@@ -6,7 +6,7 @@ import { Edit, Trash2, Mail, Phone } from "lucide-react"
 import Link from "next/link"
 import type { Client } from "@/lib/types"
 import { useState } from "react"
-import { fetchFromAPI } from "@/lib/db"
+import { fetchFromAPI } from "@/lib/fetch"
 import { useRouter } from "next/navigation"
 import {
   AlertDialog,

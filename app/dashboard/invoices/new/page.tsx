@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic"
+
 import { sql } from "@/lib/db"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { InvoiceForm } from "@/components/invoice-form"

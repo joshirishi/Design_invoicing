@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic"
+
 import { notFound } from "next/navigation"
 import { sql } from "@/lib/db"
 import { DashboardLayout } from "@/components/dashboard-layout"

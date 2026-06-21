@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Plus, Trash2, Loader2, X, Receipt } from "lucide-react"
-import { fetchFromAPI } from "@/lib/db"
+import { fetchFromAPI } from "@/lib/fetch"
 import type { Purchase } from "@/lib/types"
 
 interface PurchasesViewProps {

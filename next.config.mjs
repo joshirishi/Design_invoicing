@@ -9,6 +9,7 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // @supabase/supabase-js uses fetch — no special config needed
 }
 
 export default nextConfig
