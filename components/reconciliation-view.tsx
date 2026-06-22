@@ -9,6 +9,7 @@ import type { BankTransaction, Payment } from "@/lib/types"
 import { fetchFromAPI } from "@/lib/fetch"
 import { useRouter } from "next/navigation"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { CategoryBadge } from "@/components/category-badge"
 
 interface ReconciliationViewProps {
   transactions: (BankTransaction & { payment?: Payment & { invoice?: { invoice_number: string } } })[]
@@ -90,9 +91,17 @@ export function ReconciliationView({ transactions, payments }: ReconciliationVie
                   <div key={transaction.id} className="flex items-start gap-4 p-4 border rounded-lg">
                     <div className="flex-1 space-y-1 min-w-0">
                       <p className="font-medium truncate">{transaction.description}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {new Date(transaction.transaction_date).toLocaleDateString("en-IN")}
-                      </p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm text-muted-foreground">
+                          {new Date(transaction.transaction_date).toLocaleDateString("en-IN")}
+                        </p>
+                        <CategoryBadge
+                          transactionId={transaction.id}
+                          description={transaction.description || ""}
+                          category={(transaction as Record<string, unknown>).category as string || "Uncategorized"}
+                          source={(transaction as Record<string, unknown>).category_source as string}
+                        />
+                      </div>
                       {transaction.reference_number && (
                         <p className="text-xs text-muted-foreground">Ref: {transaction.reference_number}</p>
                       )}

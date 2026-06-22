@@ -1,6 +1,7 @@
 import { sql } from "@/lib/db"
 import { type NextRequest, NextResponse } from "next/server"
 import { getCurrentOrgId } from "@/lib/get-org"
+import { categorize, fetchRules } from "@/lib/categorize"
 
 export async function GET() {
   try {
@@ -39,17 +40,22 @@ export async function POST(request: NextRequest) {
     const orgId = await getCurrentOrgId()
     const { transactions } = await request.json()
 
+    // Load rules once for the whole batch
+    const rules = await fetchRules(orgId)
+
     for (const txn of transactions) {
+      const { category, source } = categorize(txn.description || "", rules)
       await sql`
         INSERT INTO bank_transactions (
           org_id, transaction_date, description, reference_number,
-          debit, credit, balance, reconciled
+          debit, credit, balance, reconciled, category, category_source
         )
         VALUES (
           ${orgId}, ${txn.transaction_date}, ${txn.description},
           ${txn.reference_number || null},
           ${txn.debit || null}, ${txn.credit || null},
-          ${txn.balance || null}, false
+          ${txn.balance || null}, false,
+          ${category}, ${source}
         )
       `
     }

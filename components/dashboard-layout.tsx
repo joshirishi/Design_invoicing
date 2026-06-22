@@ -3,23 +3,32 @@
 import type React from "react"
 
 import { Button } from "@/components/ui/button"
-import { FileText, Users, DollarSign, BarChart3, Upload, Settings, Menu, Receipt, ShoppingBag } from "lucide-react"
+import { FileText, Users, DollarSign, BarChart3, Upload, Settings, Menu, Receipt, ShoppingBag, PieChart, LogOut } from "lucide-react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { createBrowserClient } from "@/lib/supabase-auth"
 
 const navigation = [
-  { name: "Dashboard", href: "/dashboard", icon: BarChart3 },
-  { name: "Invoices", href: "/dashboard/invoices", icon: FileText },
-  { name: "Clients", href: "/dashboard/clients", icon: Users },
-  { name: "Payments", href: "/dashboard/payments", icon: DollarSign },
-  { name: "Purchases", href: "/dashboard/purchases", icon: ShoppingBag },
-  { name: "Reconciliation", href: "/dashboard/reconciliation", icon: Upload },
-  { name: "GST Report", href: "/dashboard/gst-report", icon: Receipt },
+  { name: "Dashboard",       href: "/dashboard",                 icon: BarChart3  },
+  { name: "Account Summary", href: "/dashboard/account-summary", icon: PieChart   },
+  { name: "Invoices",        href: "/dashboard/invoices",        icon: FileText   },
+  { name: "Clients",         href: "/dashboard/clients",         icon: Users      },
+  { name: "Payments",        href: "/dashboard/payments",        icon: DollarSign },
+  { name: "Purchases",       href: "/dashboard/purchases",       icon: ShoppingBag},
+  { name: "Reconciliation",  href: "/dashboard/reconciliation",  icon: Upload     },
+  { name: "GST Report",      href: "/dashboard/gst-report",      icon: Receipt    },
 ]
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const router   = useRouter()
+
+  async function signOut() {
+    const supabase = createBrowserClient()
+    await supabase.auth.signOut()
+    router.push("/login")
+  }
 
   const NavContent = () => (
     <>
@@ -47,6 +56,10 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
             Settings
           </Button>
         </Link>
+        <Button variant="ghost" className="w-full justify-start gap-3 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={signOut}>
+          <LogOut className="h-5 w-5" />
+          Sign Out
+        </Button>
       </div>
     </>
   )

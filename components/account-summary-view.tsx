@@ -1,0 +1,227 @@
+"use client"
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend,
+} from "recharts"
+import { TrendingUp, TrendingDown, IndianRupee, FileText, ShoppingBag, Landmark } from "lucide-react"
+
+const COLORS = [
+  "#6366f1","#8b5cf6","#ec4899","#f59e0b","#10b981",
+  "#3b82f6","#ef4444","#14b8a6","#f97316","#84cc16",
+]
+
+function fmt(n: number | string) {
+  const v = Number(n) || 0
+  if (v >= 100000) return `₹${(v / 100000).toFixed(1)}L`
+  if (v >= 1000)   return `₹${(v / 1000).toFixed(1)}K`
+  return `₹${v.toFixed(0)}`
+}
+
+interface Props {
+  monthly: Record<string, unknown>[]
+  byCategory: Record<string, unknown>[]
+  invoiceSummary: Record<string, unknown>
+  purchaseSummary: Record<string, unknown>
+  topPayees: Record<string, unknown>[]
+}
+
+export default function AccountSummaryView({ monthly, byCategory, invoiceSummary, purchaseSummary, topPayees }: Props) {
+  const totalIncome   = monthly.reduce((s, r) => s + Number(r.income   || 0), 0)
+  const totalExpenses = monthly.reduce((s, r) => s + Number(r.expenses || 0), 0)
+  const netCashflow   = totalIncome - totalExpenses
+
+  // Pie data — top 8 expense categories
+  const pieData = byCategory
+    .filter((c) => Number(c.total_debit) > 0)
+    .slice(0, 8)
+    .map((c) => ({ name: c.category as string, value: Number(c.total_debit) }))
+
+  const monthlyChartData = monthly.map((m) => ({
+    month: String(m.month || "").slice(5),
+    Income:   Number(m.income   || 0),
+    Expenses: Number(m.expenses || 0),
+  }))
+
+  const kpis = [
+    {
+      label: "Total Income",
+      value: fmt(totalIncome),
+      icon: TrendingUp,
+      color: "text-emerald-600",
+      bg: "bg-emerald-50",
+      border: "border-emerald-100",
+    },
+    {
+      label: "Total Expenses",
+      value: fmt(totalExpenses),
+      icon: TrendingDown,
+      color: "text-rose-600",
+      bg: "bg-rose-50",
+      border: "border-rose-100",
+    },
+    {
+      label: "Net Cash Flow",
+      value: fmt(netCashflow),
+      icon: IndianRupee,
+      color: netCashflow >= 0 ? "text-indigo-600" : "text-orange-600",
+      bg: netCashflow >= 0 ? "bg-indigo-50" : "bg-orange-50",
+      border: netCashflow >= 0 ? "border-indigo-100" : "border-orange-100",
+    },
+    {
+      label: "Invoices Billed",
+      value: fmt(invoiceSummary.total_billed as number),
+      icon: FileText,
+      color: "text-violet-600",
+      bg: "bg-violet-50",
+      border: "border-violet-100",
+    },
+    {
+      label: "Purchases Spent",
+      value: fmt(purchaseSummary.total_spent as number),
+      icon: ShoppingBag,
+      color: "text-amber-600",
+      bg: "bg-amber-50",
+      border: "border-amber-100",
+    },
+    {
+      label: "Net GST Liability",
+      value: fmt(
+        Number(invoiceSummary.total_gst_collected || 0) -
+        Number(purchaseSummary.total_input_gst || 0)
+      ),
+      icon: Landmark,
+      color: "text-sky-600",
+      bg: "bg-sky-50",
+      border: "border-sky-100",
+    },
+  ]
+
+  return (
+    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Account Summary</h1>
+        <p className="text-gray-500 text-sm mt-1">Last 6 months · all figures in INR</p>
+      </div>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        {kpis.map((k) => (
+          <div key={k.label} className={`rounded-xl border ${k.border} ${k.bg} p-4`}>
+            <div className={`inline-flex p-2 rounded-lg ${k.bg} mb-2`}>
+              <k.icon className={`w-4 h-4 ${k.color}`} />
+            </div>
+            <p className="text-xs text-gray-500 leading-tight">{k.label}</p>
+            <p className={`text-lg font-bold mt-0.5 ${k.color}`}>{k.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Charts row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Income vs Expenses bar chart */}
+        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+          <h2 className="font-semibold text-gray-800 mb-4">Monthly Income vs Expenses</h2>
+          {monthlyChartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={monthlyChartData} barCategoryGap="30%">
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                <YAxis tickFormatter={(v) => `₹${v >= 1000 ? (v/1000).toFixed(0)+"K" : v}`} tick={{ fontSize: 11 }} />
+                <Tooltip formatter={(v: number) => fmt(v)} />
+                <Legend />
+                <Bar dataKey="Income"   fill="#10b981" radius={[4,4,0,0]} />
+                <Bar dataKey="Expenses" fill="#f43f5e" radius={[4,4,0,0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-60 flex items-center justify-center text-gray-400 text-sm">
+              No bank transactions yet. Import a statement to see your trends.
+            </div>
+          )}
+        </div>
+
+        {/* Expense pie */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+          <h2 className="font-semibold text-gray-800 mb-4">Spending by Category</h2>
+          {pieData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={240}>
+              <PieChart>
+                <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} innerRadius={40}>
+                  {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                </Pie>
+                <Tooltip formatter={(v: number) => fmt(v)} />
+                <Legend formatter={(v) => <span className="text-xs">{v}</span>} />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-60 flex items-center justify-center text-gray-400 text-sm text-center px-4">
+              No categorised expenses yet.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Bottom row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Category breakdown table */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+          <h2 className="font-semibold text-gray-800 mb-4">Category Breakdown</h2>
+          {byCategory.length > 0 ? (
+            <div className="space-y-2">
+              {byCategory.slice(0, 10).map((c, i) => {
+                const debit  = Number(c.total_debit  || 0)
+                const credit = Number(c.total_credit || 0)
+                const maxDebit = Number(byCategory[0].total_debit || 1)
+                return (
+                  <div key={i} className="flex items-center gap-3">
+                    <div
+                      className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: COLORS[i % COLORS.length] }}
+                    />
+                    <span className="text-sm text-gray-700 w-40 truncate">{String(c.category)}</span>
+                    <div className="flex-1 bg-gray-100 rounded-full h-1.5">
+                      <div
+                        className="h-1.5 rounded-full"
+                        style={{ width: `${(debit / maxDebit) * 100}%`, backgroundColor: COLORS[i % COLORS.length] }}
+                      />
+                    </div>
+                    <div className="text-right w-20">
+                      {debit > 0 && <span className="text-xs text-rose-600 font-medium">-{fmt(debit)}</span>}
+                      {credit > 0 && <span className="text-xs text-emerald-600 font-medium ml-1">+{fmt(credit)}</span>}
+                    </div>
+                    <span className="text-xs text-gray-400 w-10 text-right">{Number(c.count)}×</span>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <p className="text-gray-400 text-sm">No data available.</p>
+          )}
+        </div>
+
+        {/* Top payees */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+          <h2 className="font-semibold text-gray-800 mb-4">Top Payees by Spend</h2>
+          {topPayees.length > 0 ? (
+            <div className="space-y-2">
+              {topPayees.map((p, i) => (
+                <div key={i} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-xs font-bold text-gray-400 w-5">{i + 1}</span>
+                    <span className="text-sm text-gray-700 truncate max-w-xs">{String(p.description)}</span>
+                  </div>
+                  <div className="text-right flex-shrink-0 ml-4">
+                    <p className="text-sm font-semibold text-rose-600">{fmt(p.total_spent as number)}</p>
+                    <p className="text-xs text-gray-400">{Number(p.txn_count)} txn</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-400 text-sm">No expense data yet.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
