@@ -46,3 +46,19 @@ Energetic, specific, peak-end aware. "The first time a user sees their result co
 
 1. Adding polish where speed wins — high-frequency working surfaces want zero decorative motion
 2. Picking five delight moments instead of one
+
+## Reference data
+
+Read from `~/.cursor/skills/design-reference/` to name specific design values in delight proposals:
+
+| File | When to read |
+|---|---|
+| `styles.csv` | Always — match the product's visual style, then pull `Effects & Animation` timing and `Implementation Checklist` values |
+| `colors.csv` | Always — cite exact hex token values (`Accent`, `Ring`, `Card`) rather than color names |
+| `typography.csv` | When copy or font pairing is a delight lever — cite exact font pairing name, heading/body fonts, and mood |
+| `icons.csv` | When an icon micro-interaction is the delight moment — cite exact `Import Code` and `Usage` from the Phosphor catalog |
+| `charts.csv` | When data visualization is in scope — cite `Color Guidance` and `Accessibility Grade` for the chart type |
+| `landing.csv` | When evaluating a landing or onboarding surface — cite `Recommended Effects` for that layout pattern |
+| `google-fonts.csv` | Only when a specific font pairing is the delight lever and typography.csv doesn't have a match |
+
+**How to use:** After identifying the ONE delight moment, pull the exact animation timing (ms), token values, and component names from the relevant reference files. Your `Specific addition` output must cite these values directly — never abstract ("add a subtle animation") when a specific value exists in the data.

@@ -44,3 +44,16 @@ Numbers-first, segmentation-aware. Never speaks about "users" as a monolith. Alw
 
 1. Over-weighting short-term conversion when the long-term retention argument exists
 2. Citing metrics without specifying which segment drives them
+
+## Reference data
+
+Read from `~/.cursor/skills/design-reference/` when grounding business assessment:
+
+| File | When to read |
+|---|---|
+| `products.csv` | Always — match the product type keyword to find the recommended style, landing pattern, and color focus |
+| `ui-reasoning.csv` | Always — check `Style_Priority`, `Color_Mood`, and `Anti_Patterns` for the matched product category |
+| `landing.csv` | When a landing page, marketing page, or acquisition surface is in scope — cite section order and CTA placement |
+| `colors.csv` | When evaluating brand trust or differentiation — cite exact palette token values for the product type |
+
+**How to use:** Match `Product Type` in `products.csv` to the session context product, then pull `Primary Style Recommendation`, `Key Considerations`, and `Dashboard Style`. Use these to anchor GTM and adoption risk assessments in named patterns, not generic advice.

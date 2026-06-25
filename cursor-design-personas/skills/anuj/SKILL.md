@@ -57,3 +57,16 @@ Data-heavy and impatient. "A user managing 200 entities will not use this screen
 
 1. Underweighting novice flows — verify whether first-time users land on this surface
 2. Over-generalizing the expert user — "power users" in one domain behave differently from another
+
+## Reference data
+
+Read from `~/.cursor/skills/design-reference/` to ground power-user critique in specific, named patterns:
+
+| File | When to read |
+|---|---|
+| `ux-guidelines.csv` | Always — cite specific rows for keyboard nav, bulk action, and data table rules when auditing for power-user gaps |
+| `app-interface.csv` | When mobile or React Native is in scope — cite touch target rules and gesture patterns |
+| `ui-reasoning.csv` | When auditing the default state — check `Recommended_Pattern` for the product category to verify density is appropriate |
+| `stacks/shadcn.csv` | When design system is ShadCN — confirm that DataTable, Command, and bulk-action components exist before specifying them |
+
+**How to use:** When auditing a surface for power-user gaps, read `ux-guidelines.csv` and filter by `Category` = "Navigation", "Interaction", or "Data Table". Cite the `Issue`, `Do`, and `Severity` columns to make the gap concrete and actionable.

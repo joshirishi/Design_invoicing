@@ -19,6 +19,7 @@ const SKILLS = [
   'design-critic',
   'ux-ideator',
   'design-personas',
+  'design-reference',
 ];
 
 // Copies a directory recursively

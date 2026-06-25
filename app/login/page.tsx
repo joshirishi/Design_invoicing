@@ -1,7 +1,7 @@
 "use client"
-import { useState } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { createBrowserClient } from "@/lib/supabase-auth"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Eye, EyeOff, FileText, Loader2, ArrowRight } from "lucide-react"
 
 type Mode = "login" | "signup" | "forgot"
@@ -18,8 +18,9 @@ function GoogleIcon() {
   )
 }
 
-export default function LoginPage() {
+function LoginForm() {
   const router  = useRouter()
+  const searchParams = useSearchParams()
   const [mode, setMode]       = useState<Mode>("login")
   const [email, setEmail]     = useState("")
   const [password, setPw]     = useState("")
@@ -31,6 +32,12 @@ export default function LoginPage() {
   const [info, setInfo]       = useState("")
 
   const supabase = createBrowserClient()
+
+  // Show any OAuth error returned via ?error= query param
+  useEffect(() => {
+    const oauthError = searchParams.get("error")
+    if (oauthError) setError(decodeURIComponent(oauthError))
+  }, [searchParams])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -259,5 +266,13 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   )
 }

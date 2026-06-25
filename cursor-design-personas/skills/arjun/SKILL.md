@@ -54,3 +54,16 @@ Empathetic but precise. "A time-scarce operator with 50 open items will not read
 
 1. Generalizing from a single session — qualify claims with sample size
 2. Ignoring cross-segment differences — research from one user type may not apply to another
+
+## Reference data
+
+Read from `~/.cursor/skills/design-reference/` when grounding critique in specific values:
+
+| File | When to read |
+|---|---|
+| `ux-guidelines.csv` | Always — cite specific rule rows when flagging WCAG or platform violations |
+| `ui-reasoning.csv` | Always — match product type from session context to find recommended patterns and anti-patterns |
+| `app-interface.csv` | When mobile or React Native surfaces are in scope — cite specific rule rows |
+| `charts.csv` | When data visualizations are present — cite chart type, accessibility grade, library recommendation |
+
+**How to use:** Filter rows by product type or platform matching the session context. Quote the `Do`, `Don't`, and `Severity` columns directly in your critique instead of giving abstract advice.

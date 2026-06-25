@@ -36,6 +36,10 @@ Orchestrating skills:
   ux-ideator       6-phase ideation workflow
   design-personas  Session context template
 
+Reference data (used by all personas automatically):
+  design-reference  12 CSV files — colors, styles, typography, UX guidelines,
+                    product patterns, charts, icons, stacks (16 frameworks)
+
 Docs: https://github.com/rishikeshjoshi/cursor-design-personas
 `;
 

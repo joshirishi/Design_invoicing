@@ -1,6 +1,6 @@
 {
   "name": "cursor-design-personas",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "7 AI design personas for Cursor — run structured UX critiques and ideation sessions with Arjun (UX), Meera (Business), Priya (Feasibility), Zara (Delight), Noor (IA), Anuj (Power-User), and Raj (Arbitrator).",
   "keywords": [
     "cursor",
@@ -14,7 +14,7 @@
   "author": "Rishikesh Joshi",
   "license": "MIT",
   "bin": {
-    "cursor-design-personas": "./bin/cli.js"
+    "cursor-design-personas": "bin/cli.js"
   },
   "files": [
     "bin/",
