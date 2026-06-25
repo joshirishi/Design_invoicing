@@ -4,6 +4,7 @@ import { Check, Loader2, Palette, LayoutGrid, ArrowLeft, Save, Eye } from "lucid
 import { TemplatePreview } from "@/components/template-preview"
 import { TemplateStylePanel } from "@/components/template-style-panel"
 import { TemplateFieldPanel } from "@/components/template-field-panel"
+import { CanvasTemplateEditor } from "@/components/canvas-template-editor"
 import { fetchFromAPI } from "@/lib/fetch"
 import type { TemplateConfig } from "@/lib/template-defaults"
 import { useRouter } from "next/navigation"
@@ -18,6 +19,17 @@ type Tab = "style" | "fields"
 
 export function TemplateEditor({ initialConfig, savedTemplateId, templateName = "My Template" }: Props) {
   const router = useRouter()
+
+  // Canvas mode gets its own full-screen editor
+  if (initialConfig.templateId === "canvas") {
+    return (
+      <CanvasTemplateEditor
+        initialConfig={initialConfig}
+        savedTemplateId={savedTemplateId}
+        templateName={templateName}
+      />
+    )
+  }
   const [config, setConfig]   = useState<TemplateConfig>(initialConfig)
   const [tab, setTab]         = useState<Tab>("style")
   const [name, setName]       = useState(templateName)

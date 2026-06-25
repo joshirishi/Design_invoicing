@@ -1,8 +1,9 @@
 "use client"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Check, Pencil, Plus, Star, Sparkles } from "lucide-react"
+import { Check, Pencil, Star, Sparkles, Layers } from "lucide-react"
 import { TemplatePreview } from "@/components/template-preview"
+import { CanvasTemplatePreview } from "@/components/canvas-template-preview"
 import { TemplateEditor } from "@/components/template-editor"
 import type { TemplateConfig } from "@/lib/template-defaults"
 import { STARTER_TEMPLATES } from "@/lib/template-defaults"
@@ -75,7 +76,7 @@ export default function TemplatesPageClient({ starters, saved }: Props) {
           <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Starter Templates</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {starters.map((s) => (
+          {starters.filter(s => s.id !== "canvas").map((s) => (
             <TemplateCard
               key={s.id}
               name={s.name}
@@ -85,6 +86,34 @@ export default function TemplatesPageClient({ starters, saved }: Props) {
               isStarter
             />
           ))}
+        </div>
+      </section>
+
+      {/* Canvas template CTA */}
+      <section>
+        <div className="flex items-center gap-2 mb-4">
+          <Layers className="w-4 h-4 text-violet-500" />
+          <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Canvas Mode</h2>
+        </div>
+        <div
+          onClick={() => setEditing({ config: STARTER_TEMPLATES.find(s => s.id === "canvas")!.config, name: "Canvas Template" })}
+          className="group cursor-pointer rounded-xl border-2 border-dashed border-violet-200 hover:border-violet-400 bg-gradient-to-br from-violet-50 to-indigo-50 hover:from-violet-100 hover:to-indigo-100 p-8 flex items-center gap-6 transition-all shadow-sm hover:shadow-md"
+        >
+          <div className="w-14 h-14 rounded-2xl bg-violet-600 flex items-center justify-center shadow-lg shrink-0 group-hover:scale-105 transition-transform">
+            <Layers className="w-7 h-7 text-white" />
+          </div>
+          <div className="min-w-0">
+            <h3 className="font-bold text-gray-900 text-base">Upload Your Own Design</h3>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Upload a branded PNG background and freely drag invoice fields anywhere on it.
+              Supports Google Fonts and Pantone colors.
+            </p>
+          </div>
+          <div className="ml-auto shrink-0">
+            <span className="inline-flex items-center gap-1.5 bg-violet-600 text-white text-xs font-semibold px-4 py-2 rounded-lg shadow-sm group-hover:bg-violet-500 transition">
+              <Pencil className="w-3.5 h-3.5" /> Open Canvas
+            </span>
+          </div>
         </div>
       </section>
     </div>
@@ -114,9 +143,15 @@ function TemplateCard({
         style={{ height: 220 }}
         onClick={onEdit}
       >
+        {config.templateId === "canvas" ? (
+          <div style={{ transform: "scale(0.37)", transformOrigin: "top left", width: "270%", height: "270%", pointerEvents: "none" }}>
+            <CanvasTemplatePreview config={config} />
+          </div>
+        ) : (
         <div style={{ transform: "scale(0.25)", transformOrigin: "top left", width: "400%", height: "400%", pointerEvents: "none" }}>
           <TemplatePreview config={config} />
         </div>
+        )}
         {/* Hover overlay */}
         <div className="absolute inset-0 bg-indigo-600/0 group-hover:bg-indigo-600/5 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
           <div className="bg-white rounded-full px-4 py-2 shadow text-sm font-medium text-indigo-700 flex items-center gap-2">

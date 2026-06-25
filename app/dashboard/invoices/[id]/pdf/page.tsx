@@ -5,6 +5,7 @@ import { sql } from "@/lib/db"
 import { numberToWords } from "@/lib/utils/number-to-words"
 import { PrintButton } from "./print-button"
 import { TemplatePreview, SAMPLE_PROFILE } from "@/components/template-preview"
+import { CanvasTemplatePreview } from "@/components/canvas-template-preview"
 import { CLASSIC_TEMPLATE } from "@/lib/template-defaults"
 import type { TemplateConfig } from "@/lib/template-defaults"
 
@@ -117,7 +118,11 @@ export default async function InvoicePdfPage({ params }: { params: Promise<{ id:
 
       {/* Rendered invoice using saved template */}
       <div className="invoice-page mx-auto my-8 shadow-xl">
-        <TemplatePreview config={config} invoice={invoiceData} profile={profileData} isPrint />
+        {config.templateId === "canvas" ? (
+          <CanvasTemplatePreview config={config} invoice={invoiceData} profile={profileData} isPrint />
+        ) : (
+          <TemplatePreview config={config} invoice={invoiceData} profile={profileData} isPrint />
+        )}
       </div>
 
       {/* Amount in words below the template */}

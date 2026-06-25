@@ -13,8 +13,21 @@ export interface CustomField {
   show: boolean
 }
 
+// Per-field position + style for canvas mode
+export interface CanvasFieldLayout {
+  x: number           // % from left (0-100)
+  y: number           // % from top  (0-100)
+  w: number           // % width (0-100)
+  fontSize: number    // px
+  color: string       // hex
+  fontFamily: string
+  fontWeight: "normal" | "bold"
+  textAlign: "left" | "center" | "right"
+  show: boolean
+}
+
 export interface TemplateConfig {
-  templateId: "classic" | "modern" | "professional"
+  templateId: "classic" | "modern" | "professional" | "canvas"
   colors: {
     primary: string      // header bg / accent
     secondary: string    // subheadings / borders
@@ -43,6 +56,9 @@ export interface TemplateConfig {
   }
   lineItems: boolean   // true = multi-row table, false = single description
   pageSize: "A4" | "Letter"
+  // Canvas-mode only fields
+  canvasBackground?: string                          // Supabase Storage public URL
+  fieldLayout?: Record<string, CanvasFieldLayout>   // keyed by fieldKey
 }
 
 // ── Starter presets ──────────────────────────────────────────────────────────
@@ -131,6 +147,66 @@ export const PROFESSIONAL_TEMPLATE: TemplateConfig = {
   pageSize: "A4",
 }
 
+export const FONT_OPTIONS = [
+  { label: "Inter (Sans)",           value: "Inter, sans-serif" },
+  { label: "Arial (Sans)",           value: "Arial, sans-serif" },
+  { label: "Georgia (Serif)",        value: "Georgia, serif" },
+  { label: "Trebuchet MS (Sans)",    value: "Trebuchet MS, sans-serif" },
+  { label: "Courier New (Mono)",     value: "Courier New, monospace" },
+  { label: "Times New Roman (Serif)",value: "Times New Roman, serif" },
+]
+
+export const SIZE_SCALE = { sm: "11px", md: "13px", lg: "15px" }
+
+// Default field layout for canvas mode — reasonable A4 positions
+export const DEFAULT_CANVAS_FIELD_LAYOUT: Record<string, CanvasFieldLayout> = {
+  businessName:  { x: 5,  y: 4,  w: 50, fontSize: 20, color: "#1e293b", fontFamily: "Inter, sans-serif", fontWeight: "bold",   textAlign: "left",  show: true  },
+  businessInfo:  { x: 5,  y: 11, w: 50, fontSize: 11, color: "#475569", fontFamily: "Inter, sans-serif", fontWeight: "normal", textAlign: "left",  show: true  },
+  invoiceTitle:  { x: 65, y: 4,  w: 30, fontSize: 22, color: "#1e293b", fontFamily: "Inter, sans-serif", fontWeight: "bold",   textAlign: "right", show: true  },
+  invoiceMeta:   { x: 55, y: 12, w: 40, fontSize: 11, color: "#475569", fontFamily: "Inter, sans-serif", fontWeight: "normal", textAlign: "right", show: true  },
+  billTo:        { x: 5,  y: 25, w: 45, fontSize: 12, color: "#1e293b", fontFamily: "Inter, sans-serif", fontWeight: "normal", textAlign: "left",  show: true  },
+  serviceDate:   { x: 55, y: 25, w: 40, fontSize: 11, color: "#475569", fontFamily: "Inter, sans-serif", fontWeight: "normal", textAlign: "right", show: true  },
+  hsnCode:       { x: 55, y: 29, w: 40, fontSize: 11, color: "#475569", fontFamily: "Inter, sans-serif", fontWeight: "normal", textAlign: "right", show: true  },
+  lineItemsTable:{ x: 5,  y: 38, w: 90, fontSize: 11, color: "#1e293b", fontFamily: "Inter, sans-serif", fontWeight: "normal", textAlign: "left",  show: true  },
+  subtotal:      { x: 55, y: 66, w: 40, fontSize: 11, color: "#475569", fontFamily: "Inter, sans-serif", fontWeight: "normal", textAlign: "right", show: true  },
+  cgst:          { x: 55, y: 69, w: 40, fontSize: 11, color: "#475569", fontFamily: "Inter, sans-serif", fontWeight: "normal", textAlign: "right", show: true  },
+  sgst:          { x: 55, y: 72, w: 40, fontSize: 11, color: "#475569", fontFamily: "Inter, sans-serif", fontWeight: "normal", textAlign: "right", show: true  },
+  totalAmount:   { x: 55, y: 76, w: 40, fontSize: 14, color: "#1e293b", fontFamily: "Inter, sans-serif", fontWeight: "bold",   textAlign: "right", show: true  },
+  terms:         { x: 5,  y: 83, w: 60, fontSize: 10, color: "#64748b", fontFamily: "Inter, sans-serif", fontWeight: "normal", textAlign: "left",  show: true  },
+  bankDetails:   { x: 5,  y: 88, w: 55, fontSize: 10, color: "#475569", fontFamily: "Inter, sans-serif", fontWeight: "normal", textAlign: "left",  show: true  },
+  signature:     { x: 65, y: 88, w: 30, fontSize: 11, color: "#1e293b", fontFamily: "Inter, sans-serif", fontWeight: "normal", textAlign: "center",show: true  },
+  logo:          { x: 5,  y: 2,  w: 20, fontSize: 12, color: "#1e293b", fontFamily: "Inter, sans-serif", fontWeight: "normal", textAlign: "left",  show: false },
+}
+
+export const CANVAS_TEMPLATE: TemplateConfig = {
+  templateId: "canvas",
+  colors: {
+    primary:    "#1e293b",
+    secondary:  "#e2e8f0",
+    text:       "#1e293b",
+    background: "#ffffff",
+    headerText: "#ffffff",
+  },
+  fonts: { heading: "Inter, sans-serif", body: "Inter, sans-serif", size: "md" },
+  fields: {
+    logo:          { show: false },
+    senderPhone:   { show: true,  label: "Phone" },
+    senderAddress: { show: true,  label: "Address" },
+    clientPhone:   { show: false },
+    clientGstin:   { show: true,  label: "GSTIN" },
+    hsnCode:       { show: true,  label: "HSN/SAC" },
+    serviceDate:   { show: true,  label: "Service Date" },
+    cgstSgst:      { show: true },
+    terms:         { show: true },
+    bankDetails:   { show: true },
+    signature:     { show: true },
+    custom:        [],
+  },
+  lineItems: false,
+  pageSize: "A4",
+  fieldLayout: DEFAULT_CANVAS_FIELD_LAYOUT,
+}
+
 export const STARTER_TEMPLATES: Array<{
   id: TemplateConfig["templateId"]
   name: string
@@ -155,15 +231,10 @@ export const STARTER_TEMPLATES: Array<{
     description: "Bold full-width teal header with multi-line item support. Ideal for product businesses.",
     config: PROFESSIONAL_TEMPLATE,
   },
+  {
+    id: "canvas",
+    name: "Canvas",
+    description: "Upload your own branded background image and freely position all invoice fields on it.",
+    config: CANVAS_TEMPLATE,
+  },
 ]
-
-export const FONT_OPTIONS = [
-  { label: "Inter (Sans)",           value: "Inter, sans-serif" },
-  { label: "Arial (Sans)",           value: "Arial, sans-serif" },
-  { label: "Georgia (Serif)",        value: "Georgia, serif" },
-  { label: "Trebuchet MS (Sans)",    value: "Trebuchet MS, sans-serif" },
-  { label: "Courier New (Mono)",     value: "Courier New, monospace" },
-  { label: "Times New Roman (Serif)",value: "Times New Roman, serif" },
-]
-
-export const SIZE_SCALE = { sm: "11px", md: "13px", lg: "15px" }
