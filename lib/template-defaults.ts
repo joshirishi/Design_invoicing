@@ -281,6 +281,19 @@ export const STARTER_TEMPLATES: Array<{
   { id: "t10", name: "Right Block",      description: "Sender info on the left, a bold dark block flush to the right holds the invoice number and date.", config: T10 },
   { id: "t11", name: "Underline",        description: "Fully white page with colored underline separators between sections. Clean and timeless.", config: T11 },
   { id: "t12", name: "Two-Tone",         description: "Colored left panel extends the full page height. White right side holds all invoice content.", config: T12 },
+  {
+    id: "canvas",
+    name: "Canvas Mode",
+    description: "Upload a branded PNG background and freely drag invoice fields anywhere on it. Supports Google Fonts and Pantone colors.",
+    config: {
+      templateId: "canvas",
+      colors: { primary: "#7c3aed", secondary: "#ede9fe", text: "#1e1b4b", background: "#ffffff", headerText: "#ffffff" },
+      fonts: { heading: "Inter, sans-serif", body: "Inter, sans-serif", size: "md" },
+      fields: FIELDS_FULL,
+      lineItems: false,
+      pageSize: "A4",
+    },
+  },
 ]
 
 export const FONT_OPTIONS = [
