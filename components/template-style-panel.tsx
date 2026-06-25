@@ -2,6 +2,24 @@
 import type { TemplateConfig } from "@/lib/template-defaults"
 import { FONT_OPTIONS } from "@/lib/template-defaults"
 
+const LAYOUT_OPTIONS: Array<{ id: string; label: string; hint: string }> = [
+  { id: "t1",           label: "Minimal Accent",  hint: "Thin colored left bar, clean white" },
+  { id: "t2",           label: "Top Banner",       hint: "Full-width colored header band" },
+  { id: "t3",           label: "Dark Sidebar",     hint: "Dark full-height left panel" },
+  { id: "t4",           label: "Corner Block",     hint: "Colored block anchored top-right" },
+  { id: "t5",           label: "Centered",         hint: "Company name centered at top" },
+  { id: "t6",           label: "Footer Accent",    hint: "Colored footer strip with totals" },
+  { id: "t7",           label: "Light Sidebar",    hint: "Soft tinted left column" },
+  { id: "t8",           label: "Bold Title",       hint: "Large INVOICE heading" },
+  { id: "t9",           label: "Grid Header",      hint: "3-cell colored header grid" },
+  { id: "t10",          label: "Right Block",      hint: "Dark block flush to the right" },
+  { id: "t11",          label: "Underline",        hint: "Colored underline separators" },
+  { id: "t12",          label: "Two-Tone",         hint: "Colored left panel, white right" },
+  { id: "classic",      label: "Classic (legacy)", hint: "Original navy header" },
+  { id: "modern",       label: "Modern (legacy)",  hint: "Original indigo minimal" },
+  { id: "professional", label: "Pro (legacy)",     hint: "Original teal bold header" },
+]
+
 interface Props {
   config: TemplateConfig
   onChange: (patch: Partial<TemplateConfig>) => void
@@ -31,17 +49,18 @@ export function TemplateStylePanel({ config, onChange }: Props) {
       {/* Layout selector */}
       <div>
         <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Layout</label>
-        <div className="grid grid-cols-3 gap-2">
-          {(["classic", "modern", "professional"] as const).map((id) => (
+        <div className="grid grid-cols-2 gap-1.5">
+          {LAYOUT_OPTIONS.map(({ id, label, hint }) => (
             <button
               key={id}
-              onClick={() => onChange({ templateId: id })}
-              className={`py-2 rounded-lg border text-xs font-medium capitalize transition-all
+              onClick={() => onChange({ templateId: id as TemplateConfig["templateId"] })}
+              title={hint}
+              className={`py-2 px-2 rounded-lg border text-xs font-medium transition-all text-left leading-tight
                 ${config.templateId === id
                   ? "border-indigo-500 bg-indigo-50 text-indigo-700 shadow-sm"
-                  : "border-gray-200 text-gray-600 hover:border-gray-300"}`}
+                  : "border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50"}`}
             >
-              {id}
+              {label}
             </button>
           ))}
         </div>
