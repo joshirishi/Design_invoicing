@@ -1,6 +1,5 @@
 export const dynamic = "force-dynamic"
 
-import { DashboardLayout } from "@/components/dashboard-layout"
 import { GSTReportView } from "@/components/gst-report-view"
 import { GSTOptInBanner } from "@/components/gst-opt-in-banner"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,7 +9,7 @@ export default async function GSTReportPage() {
   const gstConfigured = await checkGSTConfiguration()
 
   return (
-    <DashboardLayout>
+    
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">GST Report</h1>
@@ -53,7 +52,7 @@ export default async function GSTReportPage() {
 
         <GSTReportView />
       </div>
-    </DashboardLayout>
+    
   )
 }
 

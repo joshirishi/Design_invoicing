@@ -2,7 +2,6 @@ export const dynamic = "force-dynamic"
 
 import { notFound } from "next/navigation"
 import { sql } from "@/lib/db"
-import { DashboardLayout } from "@/components/dashboard-layout"
 import { InvoiceView } from "@/components/invoice-view"
 
 export default async function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -27,8 +26,8 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
   const profile = profiles[0] || null
 
   return (
-    <DashboardLayout>
+    
       <InvoiceView invoice={invoice} profile={profile} />
-    </DashboardLayout>
+    
   )
 }

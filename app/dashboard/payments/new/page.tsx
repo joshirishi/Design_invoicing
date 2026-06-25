@@ -1,7 +1,6 @@
 export const dynamic = "force-dynamic"
 
 import { sql } from "@/lib/db"
-import { DashboardLayout } from "@/components/dashboard-layout"
 import { PaymentForm } from "@/components/payment-form"
 
 export default async function NewPaymentPage() {
@@ -18,7 +17,7 @@ export default async function NewPaymentPage() {
   ])
 
   return (
-    <DashboardLayout>
+    
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Record Payment</h1>
@@ -27,6 +26,6 @@ export default async function NewPaymentPage() {
 
         <PaymentForm invoices={invoices} clients={clients} />
       </div>
-    </DashboardLayout>
+    
   )
 }

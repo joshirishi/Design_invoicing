@@ -1,4 +1,3 @@
-import { DashboardLayout } from "@/components/dashboard-layout"
 import { BankStatementUpload } from "@/components/bank-statement-upload"
 import { ReconciliationView } from "@/components/reconciliation-view"
 import { sql } from "@/lib/db"
@@ -41,7 +40,7 @@ export default async function ReconciliationPage() {
   const { transactions, payments } = await getReconciliationData()
 
   return (
-    <DashboardLayout>
+    
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Bank Reconciliation</h1>
@@ -52,6 +51,6 @@ export default async function ReconciliationPage() {
 
         <ReconciliationView transactions={transactions} payments={payments} />
       </div>
-    </DashboardLayout>
+    
   )
 }

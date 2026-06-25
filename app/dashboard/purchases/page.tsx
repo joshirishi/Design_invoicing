@@ -1,5 +1,4 @@
 import { sql } from "@/lib/db"
-import { DashboardLayout } from "@/components/dashboard-layout"
 import { PurchasesView } from "@/components/purchases-view"
 import { getCurrentOrgId } from "@/lib/get-org"
 
@@ -12,7 +11,7 @@ export default async function PurchasesPage() {
   `.catch(() => [])
 
   return (
-    <DashboardLayout>
+    
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Purchases & Input GST</h1>
@@ -20,6 +19,6 @@ export default async function PurchasesPage() {
         </div>
         <PurchasesView purchases={purchases} />
       </div>
-    </DashboardLayout>
+    
   )
 }

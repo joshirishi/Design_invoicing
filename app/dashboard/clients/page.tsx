@@ -1,6 +1,5 @@
 export const dynamic = "force-dynamic"
 
-import { DashboardLayout } from "@/components/dashboard-layout"
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
 import Link from "next/link"
@@ -23,7 +22,7 @@ export default async function ClientsPage() {
   const clients = await getClients()
 
   return (
-    <DashboardLayout>
+    
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -40,6 +39,6 @@ export default async function ClientsPage() {
 
         <ClientList clients={clients} />
       </div>
-    </DashboardLayout>
+    
   )
 }

@@ -1,5 +1,4 @@
 import { sql } from "@/lib/db"
-import { DashboardLayout } from "@/components/dashboard-layout"
 import { Button } from "@/components/ui/button"
 import { Plus, AlertCircle } from "lucide-react"
 import Link from "next/link"
@@ -19,7 +18,7 @@ export default async function InvoicesPage() {
     `
 
     return (
-      <DashboardLayout>
+      
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
@@ -36,12 +35,12 @@ export default async function InvoicesPage() {
 
           <InvoiceList invoices={invoices} />
         </div>
-      </DashboardLayout>
+      
     )
   } catch (error: any) {
     if (error.message?.includes("does not exist")) {
       return (
-        <DashboardLayout>
+        
           <div className="space-y-6">
             <div>
               <h1 className="text-3xl font-bold tracking-tight">Invoices</h1>
@@ -58,7 +57,7 @@ export default async function InvoicesPage() {
               </AlertDescription>
             </Alert>
           </div>
-        </DashboardLayout>
+        
       )
     }
     throw error

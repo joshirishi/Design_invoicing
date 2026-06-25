@@ -1,7 +1,6 @@
 export const dynamic = "force-dynamic"
 
 import { sql } from "@/lib/db"
-import { DashboardLayout } from "@/components/dashboard-layout"
 import { InvoiceForm } from "@/components/invoice-form"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
@@ -14,7 +13,7 @@ export default async function NewInvoicePage() {
     ])
 
     return (
-      <DashboardLayout>
+      
         <div className="space-y-6">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Create Invoice</h1>
@@ -23,12 +22,12 @@ export default async function NewInvoicePage() {
 
           <InvoiceForm clients={clients} profile={profile} />
         </div>
-      </DashboardLayout>
+      
     )
   } catch (error: any) {
     if (error.message?.includes("does not exist")) {
       return (
-        <DashboardLayout>
+        
           <div className="space-y-6">
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
@@ -40,12 +39,12 @@ export default async function NewInvoicePage() {
               </AlertDescription>
             </Alert>
           </div>
-        </DashboardLayout>
+        
       )
     }
 
     return (
-      <DashboardLayout>
+      
         <div className="space-y-6">
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
@@ -53,7 +52,7 @@ export default async function NewInvoicePage() {
             <AlertDescription>Failed to load data: {error.message}</AlertDescription>
           </Alert>
         </div>
-      </DashboardLayout>
+      
     )
   }
 }

@@ -2,7 +2,6 @@ export const dynamic = "force-dynamic"
 
 import { notFound } from "next/navigation"
 import { sql } from "@/lib/db"
-import { DashboardLayout } from "@/components/dashboard-layout"
 import { ClientForm } from "@/components/client-form"
 
 export default async function EditClientPage({ params }: { params: Promise<{ id: string }> }) {
@@ -16,7 +15,7 @@ export default async function EditClientPage({ params }: { params: Promise<{ id:
   }
 
   return (
-    <DashboardLayout>
+    
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Edit Client</h1>
@@ -25,6 +24,6 @@ export default async function EditClientPage({ params }: { params: Promise<{ id:
 
         <ClientForm client={client} />
       </div>
-    </DashboardLayout>
+    
   )
 }

@@ -1,5 +1,4 @@
 import { sql } from "@/lib/db"
-import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { FileText, Users, DollarSign, AlertCircle, TrendingUp, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -25,7 +24,7 @@ export default async function DashboardPage() {
 
     if (needsSetup) {
       return (
-        <DashboardLayout>
+        
           <div className="space-y-6">
             <div>
               <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
@@ -59,7 +58,7 @@ export default async function DashboardPage() {
               </CardContent>
             </Card>
           </div>
-        </DashboardLayout>
+        
       )
     }
 
@@ -112,7 +111,7 @@ export default async function DashboardPage() {
       .slice(0, 5)
 
     return (
-      <DashboardLayout>
+      
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
@@ -231,12 +230,12 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
         </div>
-      </DashboardLayout>
+      
     )
   } catch (error: any) {
     if (error.message?.includes("does not exist")) {
       return (
-        <DashboardLayout>
+        
           <div className="space-y-6">
             <div>
               <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
@@ -270,7 +269,7 @@ export default async function DashboardPage() {
               </CardContent>
             </Card>
           </div>
-        </DashboardLayout>
+        
       )
     }
     throw error

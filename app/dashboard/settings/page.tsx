@@ -1,5 +1,4 @@
 import { sql } from "@/lib/db"
-import { DashboardLayout } from "@/components/dashboard-layout"
 import { ProfileForm } from "@/components/profile-form"
 import { GSTCredentialsForm } from "@/components/gst-credentials-form"
 import { TeamSettings } from "@/components/team-settings"
@@ -25,7 +24,7 @@ export default async function SettingsPage() {
   }
 
   return (
-    <DashboardLayout>
+    
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
@@ -72,6 +71,6 @@ export default async function SettingsPage() {
           </TabsContent>
         </Tabs>
       </div>
-    </DashboardLayout>
+    
   )
 }
