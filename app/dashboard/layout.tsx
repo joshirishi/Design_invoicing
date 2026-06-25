@@ -1,10 +1,14 @@
 import type React from "react"
-import { checkAuth } from "@/lib/check-auth"
+import { redirect } from "next/navigation"
+import { createServerComponentClient } from "@/lib/supabase-server"
 
-// This server component runs checkAuth() before rendering any dashboard page.
-// If the user is not authenticated or not the allowed email, checkAuth() calls
-// Next.js redirect() which sends them to /auth/login automatically.
 export default async function DashboardRootLayout({ children }: { children: React.ReactNode }) {
-  await checkAuth()
+  const supabase = await createServerComponentClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    redirect("/login")
+  }
+
   return <>{children}</>
 }

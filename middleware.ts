@@ -1,48 +1,55 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
-import { createClient } from "@supabase/supabase-js"
+import { createServerClient } from "@supabase/ssr"
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const ANON_KEY     = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-// Routes that don't need auth
-const PUBLIC_PATHS = ["/login", "/auth", "/onboarding", "/accept-invite", "/api/"]
+const PUBLIC_PATHS = ["/login", "/auth", "/onboarding", "/accept-invite", "/reset-password", "/api/"]
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Allow public paths
+  // Allow public paths through without auth check
   if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
     return NextResponse.next()
   }
 
-  // Only protect /dashboard routes
   if (!pathname.startsWith("/dashboard")) {
     return NextResponse.next()
   }
 
-  // Check for Supabase session cookie
-  if (!SUPABASE_URL || !ANON_KEY) {
-    // Auth not configured — allow through (dev mode)
-    return NextResponse.next()
+  // Auth not configured — allow through (dev mode)
+  if (!SUPABASE_URL || !ANON_KEY) return NextResponse.next()
+
+  let response = NextResponse.next({ request })
+
+  // createServerClient from @supabase/ssr reads/writes session cookies
+  const supabase = createServerClient(SUPABASE_URL, ANON_KEY, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll()
+      },
+      setAll(cookiesToSet) {
+        // Forward any refreshed session cookies to the browser
+        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+        response = NextResponse.next({ request })
+        cookiesToSet.forEach(({ name, value, options }) =>
+          response.cookies.set(name, value, options)
+        )
+      },
+    },
+  })
+
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    const loginUrl = new URL("/login", request.url)
+    loginUrl.searchParams.set("redirect", pathname)
+    return NextResponse.redirect(loginUrl)
   }
 
-  // Read the Supabase session from cookies
-  const token = request.cookies.get("sb-access-token")?.value
-    || request.cookies.get(`sb-${SUPABASE_URL.split("//")[1].split(".")[0]}-auth-token`)?.value
-
-  if (!token) {
-    // Try reading from the newer Supabase cookie format (JSON chunked)
-    const cookieKey = Array.from(request.cookies.getAll())
-      .find(c => c.name.includes("auth-token") && c.name.includes("supabase"))
-    if (!cookieKey) {
-      const loginUrl = new URL("/login", request.url)
-      loginUrl.searchParams.set("redirect", pathname)
-      return NextResponse.redirect(loginUrl)
-    }
-  }
-
-  return NextResponse.next()
+  return response
 }
 
 export const config = {
