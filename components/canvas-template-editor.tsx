@@ -66,6 +66,7 @@ export function CanvasTemplateEditor({ initialConfig, savedTemplateId, templateN
   const [showFontPicker, setShowFontPicker] = useState(false)
   const [showColorPicker, setShowColorPicker] = useState(false)
   const [mobileView, setMobileView]       = useState<"controls" | "canvas">("controls")
+  const [isDragging, setIsDragging]       = useState(false)
 
   // Dragging state (uses refs to avoid re-renders during drag)
   const dragRef = useRef<{
@@ -95,6 +96,7 @@ export function CanvasTemplateEditor({ initialConfig, savedTemplateId, templateN
     e.stopPropagation()
     e.currentTarget.setPointerCapture(e.pointerId)
     setSelectedKey(key)
+    setIsDragging(true)
     dragRef.current = {
       key,
       startPtrX: e.clientX,
@@ -116,6 +118,7 @@ export function CanvasTemplateEditor({ initialConfig, savedTemplateId, templateN
 
   function onCanvasPointerUp() {
     dragRef.current = null
+    setIsDragging(false)
   }
 
   // ── Background upload ────────────────────────────────────────────────────
@@ -503,7 +506,7 @@ export function CanvasTemplateEditor({ initialConfig, savedTemplateId, templateN
               onPointerUp={onCanvasPointerUp}
               onPointerLeave={onCanvasPointerUp}
               className="relative bg-white shadow-2xl overflow-hidden select-none"
-              style={{ width: "595px", height: "842px", cursor: dragRef.current ? "grabbing" : "default" }}
+              style={{ width: "595px", height: "842px", cursor: isDragging ? "grabbing" : "default" }}
               onClick={e => { if (e.target === canvasRef.current) setSelectedKey(null) }}
             >
               {/* Background image */}

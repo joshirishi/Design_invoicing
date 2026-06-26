@@ -26,24 +26,25 @@ export interface CanvasFieldLayout {
   w: number
 }
 
-// Default positions for all canvas fields (595×842 A4 at 72dpi)
+// Default positions — ALL values are percentages of the 595×842 canvas.
+// x/y = top-left offset from canvas edges (0–100%). w = field width (0–100%).
 export const DEFAULT_CANVAS_FIELD_LAYOUT: Record<string, CanvasFieldLayout> = {
-  invoiceTitle:   { x: 340, y: 40,  fontSize: 28, fontFamily: "Inter", fontWeight: "bold",   color: "#1e293b", textAlign: "left", show: true,  w: 220 },
-  businessName:   { x: 40,  y: 40,  fontSize: 18, fontFamily: "Inter", fontWeight: "bold",   color: "#1e293b", textAlign: "left", show: true,  w: 280 },
-  businessInfo:   { x: 40,  y: 68,  fontSize: 10, fontFamily: "Inter", fontWeight: "normal", color: "#64748b", textAlign: "left", show: true,  w: 280 },
-  invoiceMeta:    { x: 340, y: 80,  fontSize: 11, fontFamily: "Inter", fontWeight: "normal", color: "#64748b", textAlign: "left", show: true,  w: 220 },
-  billTo:         { x: 40,  y: 140, fontSize: 11, fontFamily: "Inter", fontWeight: "normal", color: "#1e293b", textAlign: "left", show: true,  w: 260 },
-  serviceDate:    { x: 340, y: 140, fontSize: 11, fontFamily: "Inter", fontWeight: "normal", color: "#64748b", textAlign: "left", show: true,  w: 200 },
-  hsnCode:        { x: 40,  y: 210, fontSize: 11, fontFamily: "Inter", fontWeight: "normal", color: "#64748b", textAlign: "left", show: true,  w: 200 },
-  lineItemsTable: { x: 40,  y: 240, fontSize: 11, fontFamily: "Inter", fontWeight: "normal", color: "#1e293b", textAlign: "left", show: true,  w: 515 },
-  subtotal:       { x: 350, y: 480, fontSize: 11, fontFamily: "Inter", fontWeight: "normal", color: "#64748b", textAlign: "left", show: true,  w: 200 },
-  cgst:           { x: 350, y: 498, fontSize: 11, fontFamily: "Inter", fontWeight: "normal", color: "#64748b", textAlign: "left", show: true,  w: 200 },
-  sgst:           { x: 350, y: 516, fontSize: 11, fontFamily: "Inter", fontWeight: "normal", color: "#64748b", textAlign: "left", show: true,  w: 200 },
-  totalAmount:    { x: 350, y: 540, fontSize: 14, fontFamily: "Inter", fontWeight: "bold",   color: "#1e293b", textAlign: "left", show: true,  w: 200 },
-  terms:          { x: 40,  y: 600, fontSize: 10, fontFamily: "Inter", fontWeight: "normal", color: "#94a3b8", textAlign: "left", show: true,  w: 515 },
-  bankDetails:    { x: 40,  y: 660, fontSize: 10, fontFamily: "Inter", fontWeight: "normal", color: "#64748b", textAlign: "left", show: true,  w: 300 },
-  signature:      { x: 380, y: 720, fontSize: 11, fontFamily: "Inter", fontWeight: "normal", color: "#1e293b", textAlign: "center", show: true, w: 140 },
-  logo:           { x: 40,  y: 20,  fontSize: 11, fontFamily: "Inter", fontWeight: "normal", color: "#1e293b", textAlign: "left", show: false, w: 80 },
+  invoiceTitle:   { x: 57,  y: 4,   fontSize: 22, fontFamily: "Inter", fontWeight: "bold",   color: "#1e293b", textAlign: "left",   show: true,  w: 37 },
+  businessName:   { x: 7,   y: 4,   fontSize: 16, fontFamily: "Inter", fontWeight: "bold",   color: "#1e293b", textAlign: "left",   show: true,  w: 45 },
+  businessInfo:   { x: 7,   y: 9,   fontSize: 10, fontFamily: "Inter", fontWeight: "normal", color: "#64748b", textAlign: "left",   show: true,  w: 47 },
+  invoiceMeta:    { x: 57,  y: 12,  fontSize: 11, fontFamily: "Inter", fontWeight: "normal", color: "#64748b", textAlign: "left",   show: true,  w: 37 },
+  billTo:         { x: 7,   y: 19,  fontSize: 11, fontFamily: "Inter", fontWeight: "normal", color: "#1e293b", textAlign: "left",   show: true,  w: 43 },
+  serviceDate:    { x: 57,  y: 19,  fontSize: 11, fontFamily: "Inter", fontWeight: "normal", color: "#64748b", textAlign: "left",   show: true,  w: 33 },
+  hsnCode:        { x: 7,   y: 27,  fontSize: 11, fontFamily: "Inter", fontWeight: "normal", color: "#64748b", textAlign: "left",   show: true,  w: 33 },
+  lineItemsTable: { x: 7,   y: 31,  fontSize: 11, fontFamily: "Inter", fontWeight: "normal", color: "#1e293b", textAlign: "left",   show: true,  w: 86 },
+  subtotal:       { x: 59,  y: 59,  fontSize: 11, fontFamily: "Inter", fontWeight: "normal", color: "#64748b", textAlign: "left",   show: true,  w: 33 },
+  cgst:           { x: 59,  y: 62,  fontSize: 11, fontFamily: "Inter", fontWeight: "normal", color: "#64748b", textAlign: "left",   show: true,  w: 33 },
+  sgst:           { x: 59,  y: 65,  fontSize: 11, fontFamily: "Inter", fontWeight: "normal", color: "#64748b", textAlign: "left",   show: true,  w: 33 },
+  totalAmount:    { x: 59,  y: 69,  fontSize: 13, fontFamily: "Inter", fontWeight: "bold",   color: "#1e293b", textAlign: "left",   show: true,  w: 33 },
+  terms:          { x: 7,   y: 76,  fontSize: 10, fontFamily: "Inter", fontWeight: "normal", color: "#94a3b8", textAlign: "left",   show: true,  w: 86 },
+  bankDetails:    { x: 7,   y: 82,  fontSize: 10, fontFamily: "Inter", fontWeight: "normal", color: "#64748b", textAlign: "left",   show: true,  w: 50 },
+  signature:      { x: 64,  y: 90,  fontSize: 11, fontFamily: "Inter", fontWeight: "normal", color: "#1e293b", textAlign: "center", show: true,  w: 23 },
+  logo:           { x: 7,   y: 2,   fontSize: 11, fontFamily: "Inter", fontWeight: "normal", color: "#1e293b", textAlign: "left",   show: false, w: 13 },
 }
 
 export interface TemplateConfig {
