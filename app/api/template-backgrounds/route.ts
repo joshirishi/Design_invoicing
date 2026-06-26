@@ -3,7 +3,7 @@
 // The bucket "template-backgrounds" must exist in Supabase Storage with public read access.
 
 import { NextResponse } from "next/server"
-import { createServerComponentClient } from "@/lib/supabase-server"
+import { createServerClient } from "@/lib/supabase-auth"
 import { getCurrentOrgId } from "@/lib/get-org"
 
 export const dynamic = "force-dynamic"
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "File too large (max 5 MB)" }, { status: 400 })
     }
 
-    const supabase = await createServerComponentClient()
+    const supabase = createServerClient()
 
     // Ensure the bucket exists (no-op if it already does)
     const { data: buckets } = await supabase.storage.listBuckets()
