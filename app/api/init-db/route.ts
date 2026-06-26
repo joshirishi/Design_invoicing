@@ -212,6 +212,19 @@ export async function GET() {
     await sql`CREATE INDEX idx_gst_sync_logs_org ON gst_sync_logs(org_id)`
     await sql`CREATE INDEX idx_purchases_org ON purchases(org_id)`
 
+    await sql`
+      CREATE TABLE invoice_templates (
+        id SERIAL PRIMARY KEY,
+        org_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE,
+        name VARCHAR(255) NOT NULL,
+        is_default BOOLEAN DEFAULT FALSE,
+        config JSONB NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      )
+    `
+    await sql`CREATE INDEX idx_invoice_templates_org ON invoice_templates(org_id)`
+
     // Seed a default organization and profile for single-user mode
     const org = await sql`
       INSERT INTO organizations (name) VALUES ('My Business') RETURNING id
