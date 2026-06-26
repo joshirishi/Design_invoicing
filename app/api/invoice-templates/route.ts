@@ -50,12 +50,11 @@ export async function POST(req: Request) {
     }
 
     const configJson = JSON.stringify(config)
-    const rows = await sql`
+    await sql`
       INSERT INTO invoice_templates (org_id, name, is_default, config)
       VALUES (${orgId}, ${name}, ${is_default}, ${configJson}::jsonb)
-      RETURNING id, name, is_default, config, created_at
     `
-    return NextResponse.json(rows[0], { status: 201 })
+    return NextResponse.json({ success: true }, { status: 201 })
   } catch (e) {
     console.error("[POST /api/invoice-templates]", String(e))
     return NextResponse.json({ error: String(e) }, { status: 500 })
@@ -76,7 +75,7 @@ export async function PUT(req: Request) {
     }
 
     const configJson = config ? JSON.stringify(config) : null
-    const rows = await sql`
+    await sql`
       UPDATE invoice_templates
       SET
         name       = COALESCE(${name ?? null}, name),
@@ -84,10 +83,8 @@ export async function PUT(req: Request) {
         is_default = COALESCE(${is_default ?? null}, is_default),
         updated_at = NOW()
       WHERE id = ${id} AND org_id = ${orgId}
-      RETURNING id, name, is_default, config, updated_at
     `
-    if (!rows.length) return NextResponse.json({ error: "Not found" }, { status: 404 })
-    return NextResponse.json(rows[0])
+    return NextResponse.json({ success: true })
   } catch (e) {
     console.error("[PUT /api/invoice-templates]", String(e))
     return NextResponse.json({ error: String(e) }, { status: 500 })
