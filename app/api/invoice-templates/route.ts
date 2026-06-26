@@ -49,13 +49,15 @@ export async function POST(req: Request) {
       await sql`UPDATE invoice_templates SET is_default = FALSE WHERE org_id = ${orgId}`
     }
 
+    const configJson = JSON.stringify(config)
     const rows = await sql`
       INSERT INTO invoice_templates (org_id, name, is_default, config)
-      VALUES (${orgId}, ${name}, ${is_default}, ${JSON.stringify(config)})
+      VALUES (${orgId}, ${name}, ${is_default}, ${configJson}::jsonb)
       RETURNING id, name, is_default, config, created_at
     `
     return NextResponse.json(rows[0], { status: 201 })
   } catch (e) {
+    console.error("[POST /api/invoice-templates]", String(e))
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }
 }
@@ -73,11 +75,12 @@ export async function PUT(req: Request) {
       await sql`UPDATE invoice_templates SET is_default = FALSE WHERE org_id = ${orgId}`
     }
 
+    const configJson = config ? JSON.stringify(config) : null
     const rows = await sql`
       UPDATE invoice_templates
       SET
         name       = COALESCE(${name ?? null}, name),
-        config     = COALESCE(${config ? JSON.stringify(config) : null}::jsonb, config),
+        config     = COALESCE(${configJson}::jsonb, config),
         is_default = COALESCE(${is_default ?? null}, is_default),
         updated_at = NOW()
       WHERE id = ${id} AND org_id = ${orgId}
@@ -86,6 +89,7 @@ export async function PUT(req: Request) {
     if (!rows.length) return NextResponse.json({ error: "Not found" }, { status: 404 })
     return NextResponse.json(rows[0])
   } catch (e) {
+    console.error("[PUT /api/invoice-templates]", String(e))
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }
 }
