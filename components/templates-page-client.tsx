@@ -1,7 +1,6 @@
 "use client"
 import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Check, Pencil, Star, Sparkles, Layers } from "lucide-react"
+import { Check, Pencil, Star, Sparkles, Layers, FolderOpen } from "lucide-react"
 import { TemplatePreview } from "@/components/template-preview"
 import { CanvasTemplatePreview } from "@/components/canvas-template-preview"
 import { TemplateEditor } from "@/components/template-editor"
@@ -38,22 +37,44 @@ export default function TemplatesPageClient({ starters, saved }: Props) {
     )
   }
 
+  const canvasConfig = STARTER_TEMPLATES.find(s => s.id === "canvas")!.config
+
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-8">
+    <div className="p-6 max-w-6xl mx-auto space-y-10">
+      {/* Page header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Invoice Templates</h1>
         <p className="text-gray-500 text-sm mt-1">
-          Choose a starter, then customise colors, fonts, and fields to match your brand.
+          Design your invoice once, reuse it forever. Pick a starter or build your own from scratch.
         </p>
       </div>
 
-      {/* Saved templates */}
-      {saved.length > 0 && (
-        <section>
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Your Saved Templates</h2>
-            <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full">{saved.length}</span>
+      {/* ── Section 1: Your Templates ──────────────────────────────────── */}
+      <section>
+        <div className="flex items-center gap-2 mb-5">
+          <FolderOpen className="w-4 h-4 text-indigo-500" />
+          <h2 className="text-sm font-semibold text-gray-800 uppercase tracking-wide">Your Templates</h2>
+          {saved.length > 0 && (
+            <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-medium">
+              {saved.length}
+            </span>
+          )}
+        </div>
+
+        {saved.length === 0 ? (
+          // Empty state — always visible so users know where saved templates will appear
+          <div className="border-2 border-dashed border-gray-200 rounded-2xl p-10 flex flex-col items-center justify-center text-center gap-3 bg-gray-50/50">
+            <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
+              <FolderOpen className="w-6 h-6 text-gray-400" />
+            </div>
+            <div>
+              <p className="font-semibold text-gray-700 text-sm">No saved templates yet</p>
+              <p className="text-xs text-gray-400 mt-1">
+                Customise a starter below and hit <strong>Save</strong> — it will appear here.
+              </p>
+            </div>
           </div>
+        ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {saved.map((t) => (
               <TemplateCard
@@ -66,15 +87,39 @@ export default function TemplatesPageClient({ starters, saved }: Props) {
               />
             ))}
           </div>
-        </section>
-      )}
+        )}
+      </section>
 
-      {/* Starter templates */}
+      {/* ── Section 2: Starter Templates & Template Builder ───────────── */}
       <section>
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex items-center gap-2 mb-1">
           <Sparkles className="w-4 h-4 text-indigo-500" />
-          <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Starter Templates</h2>
+          <h2 className="text-sm font-semibold text-gray-800 uppercase tracking-wide">Starter Templates &amp; Template Builder</h2>
         </div>
+        <p className="text-xs text-gray-400 mb-5">
+          Pick any layout, customise it to your brand, and save it to Your Templates.
+        </p>
+
+        {/* Canvas builder CTA — pinned at the top of this section */}
+        <div
+          onClick={() => setEditing({ config: canvasConfig, name: "Canvas Template" })}
+          className="group cursor-pointer rounded-xl border-2 border-dashed border-violet-200 hover:border-violet-400 bg-gradient-to-r from-violet-50 to-indigo-50 hover:from-violet-100 hover:to-indigo-100 p-6 flex items-center gap-5 transition-all shadow-sm hover:shadow-md mb-6"
+        >
+          <div className="w-12 h-12 rounded-xl bg-violet-600 flex items-center justify-center shadow-md shrink-0 group-hover:scale-105 transition-transform">
+            <Layers className="w-6 h-6 text-white" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="font-bold text-gray-900 text-sm">Canvas Builder — Upload Your Own Design</h3>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Upload a branded PNG/JPG background, then drag invoice fields anywhere on it. Supports Google Fonts &amp; Pantone colors.
+            </p>
+          </div>
+          <span className="inline-flex items-center gap-1.5 bg-violet-600 text-white text-xs font-semibold px-4 py-2 rounded-lg shadow-sm group-hover:bg-violet-500 transition shrink-0">
+            <Pencil className="w-3.5 h-3.5" /> Open Canvas
+          </span>
+        </div>
+
+        {/* 12 starter templates */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {starters.filter(s => s.id !== "canvas").map((s) => (
             <TemplateCard
@@ -88,39 +133,11 @@ export default function TemplatesPageClient({ starters, saved }: Props) {
           ))}
         </div>
       </section>
-
-      {/* Canvas template CTA */}
-      <section>
-        <div className="flex items-center gap-2 mb-4">
-          <Layers className="w-4 h-4 text-violet-500" />
-          <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Canvas Mode</h2>
-        </div>
-        <div
-          onClick={() => setEditing({ config: STARTER_TEMPLATES.find(s => s.id === "canvas")!.config, name: "Canvas Template" })}
-          className="group cursor-pointer rounded-xl border-2 border-dashed border-violet-200 hover:border-violet-400 bg-gradient-to-br from-violet-50 to-indigo-50 hover:from-violet-100 hover:to-indigo-100 p-8 flex items-center gap-6 transition-all shadow-sm hover:shadow-md"
-        >
-          <div className="w-14 h-14 rounded-2xl bg-violet-600 flex items-center justify-center shadow-lg shrink-0 group-hover:scale-105 transition-transform">
-            <Layers className="w-7 h-7 text-white" />
-          </div>
-          <div className="min-w-0">
-            <h3 className="font-bold text-gray-900 text-base">Upload Your Own Design</h3>
-            <p className="text-sm text-gray-500 mt-0.5">
-              Upload a branded PNG background and freely drag invoice fields anywhere on it.
-              Supports Google Fonts and Pantone colors.
-            </p>
-          </div>
-          <div className="ml-auto shrink-0">
-            <span className="inline-flex items-center gap-1.5 bg-violet-600 text-white text-xs font-semibold px-4 py-2 rounded-lg shadow-sm group-hover:bg-violet-500 transition">
-              <Pencil className="w-3.5 h-3.5" /> Open Canvas
-            </span>
-          </div>
-        </div>
-      </section>
     </div>
   )
 }
 
-// ── Template Card ──────────────────────────────────────────────────────────
+// ── Template Card ─────────────────────────────────────────────────────────────
 
 function TemplateCard({
   name, description, config, isDefault, isStarter, savedId, onEdit,
@@ -137,7 +154,7 @@ function TemplateCard({
 
   return (
     <div className="group bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-all">
-      {/* Thumbnail: scaled-down preview */}
+      {/* Thumbnail */}
       <div
         className="relative overflow-hidden bg-gray-50 cursor-pointer"
         style={{ height: 220 }}
@@ -148,16 +165,19 @@ function TemplateCard({
             <CanvasTemplatePreview config={config} />
           </div>
         ) : (
-        <div style={{ transform: "scale(0.25)", transformOrigin: "top left", width: "400%", height: "400%", pointerEvents: "none" }}>
-          <TemplatePreview config={config} />
-        </div>
+          <div style={{ transform: "scale(0.25)", transformOrigin: "top left", width: "400%", height: "400%", pointerEvents: "none" }}>
+            <TemplatePreview config={config} />
+          </div>
         )}
+
         {/* Hover overlay */}
         <div className="absolute inset-0 bg-indigo-600/0 group-hover:bg-indigo-600/5 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
           <div className="bg-white rounded-full px-4 py-2 shadow text-sm font-medium text-indigo-700 flex items-center gap-2">
-            <Pencil className="w-3.5 h-3.5" /> Customize
+            <Pencil className="w-3.5 h-3.5" />
+            {isStarter ? "Customise & Save" : "Edit"}
           </div>
         </div>
+
         {/* Badges */}
         <div className="absolute top-2 left-2 flex gap-1.5">
           {isDefault && (
@@ -176,12 +196,11 @@ function TemplateCard({
       {/* Card footer */}
       <div className="p-4 flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="font-semibold text-gray-900 text-sm">{name}</p>
-          {description && <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{description}</p>}
+          <p className="font-semibold text-gray-900 text-sm truncate">{name}</p>
+          {description && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{description}</p>}
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
-          {/* Color dot */}
-          <span className="w-4 h-4 rounded-full border border-white shadow-sm" style={{ backgroundColor: c.primary }} />
+          <span className="w-3.5 h-3.5 rounded-full border border-white shadow-sm" style={{ backgroundColor: c.primary }} />
           <button
             onClick={onEdit}
             className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700 font-medium border border-indigo-100 hover:border-indigo-300 rounded-lg px-2.5 py-1.5 transition"
