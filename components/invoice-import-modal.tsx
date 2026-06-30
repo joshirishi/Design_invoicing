@@ -4,8 +4,8 @@ import type React from "react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
-} from "@/components/ui/dialog"
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter, SheetTrigger,
+} from "@/components/ui/sheet"
 import { Upload, Download, FileText, CheckCircle2, AlertCircle, Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 
@@ -43,17 +43,10 @@ export function InvoiceImportModal() {
       const formData = new FormData()
       formData.append("file", file)
 
-      const res = await fetch("/api/invoices/import", {
-        method: "POST",
-        body: formData,
-      })
-
+      const res = await fetch("/api/invoices/import", { method: "POST", body: formData })
       const json = await res.json()
 
-      if (!res.ok) {
-        setError(json.error ?? "Import failed")
-        return
-      }
+      if (!res.ok) { setError(json.error ?? "Import failed"); return }
 
       setResult(json as ImportResult)
       setFile(null)
@@ -67,35 +60,34 @@ export function InvoiceImportModal() {
     }
   }
 
-  const handleClose = () => {
-    setOpen(false)
-    setFile(null)
-    setError(null)
-    setResult(null)
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next)
+    if (!next) { setFile(null); setError(null); setResult(null) }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
+      <SheetTrigger asChild>
         <Button variant="outline">
           <Upload className="h-4 w-4 mr-2" />
           Import Invoices
         </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Import Invoices from CSV</DialogTitle>
-          <DialogDescription>
-            Bulk import your existing invoices using the template below. Clients are created automatically if they don't exist.
-          </DialogDescription>
-        </DialogHeader>
+      </SheetTrigger>
 
-        <div className="space-y-4 py-2">
-          {/* Step 1 — Download template */}
+      <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>Import Invoices from CSV</SheetTitle>
+          <SheetDescription>
+            Bulk import your existing invoices. Clients are auto-created if they don't exist.
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="space-y-4 px-4 py-2">
+          {/* Step 1 */}
           <div className="rounded-lg border p-4 space-y-2">
             <p className="text-sm font-medium">Step 1 — Download the template</p>
             <p className="text-xs text-muted-foreground">
-              Fill in your invoice data following the column format. Required: invoice_number, client_name, amount_before_tax.
+              Fill in your invoice data. Required: invoice_number, client_name, amount_before_tax.
             </p>
             <Button variant="outline" size="sm" onClick={handleDownloadTemplate}>
               <Download className="h-4 w-4 mr-2" />
@@ -103,7 +95,7 @@ export function InvoiceImportModal() {
             </Button>
           </div>
 
-          {/* Step 2 — Upload filled CSV */}
+          {/* Step 2 */}
           <div className="rounded-lg border p-4 space-y-3">
             <p className="text-sm font-medium">Step 2 — Upload your filled CSV</p>
 
@@ -144,7 +136,7 @@ export function InvoiceImportModal() {
                 {result.parseErrors && result.parseErrors.length > 0 && (
                   <details className="text-xs text-muted-foreground">
                     <summary className="cursor-pointer">
-                      {result.parseErrors.length} row{result.parseErrors.length > 1 ? "s" : ""} skipped due to errors
+                      {result.parseErrors.length} row{result.parseErrors.length > 1 ? "s" : ""} had errors
                     </summary>
                     <ul className="mt-1 space-y-1 pl-4 list-disc">
                       {result.parseErrors.map((e, i) => (
@@ -161,30 +153,27 @@ export function InvoiceImportModal() {
           <details className="text-xs text-muted-foreground">
             <summary className="cursor-pointer font-medium">CSV column reference</summary>
             <div className="mt-2 space-y-1 pl-2">
-              <p><span className="font-medium text-foreground">invoice_number</span> — required, unique per account</p>
+              <p><span className="font-medium text-foreground">invoice_number</span> — required, unique</p>
               <p><span className="font-medium text-foreground">client_name</span> — required, auto-created if new</p>
               <p><span className="font-medium text-foreground">invoice_date</span> — DD/MM/YYYY or YYYY-MM-DD</p>
               <p><span className="font-medium text-foreground">amount_before_tax</span> — numeric, no ₹ symbol</p>
-              <p><span className="font-medium text-foreground">cgst_rate / sgst_rate</span> — default 9 (for 18% GST)</p>
+              <p><span className="font-medium text-foreground">cgst_rate / sgst_rate</span> — default 9</p>
               <p><span className="font-medium text-foreground">status</span> — paid / unpaid / overdue</p>
-              <p><span className="font-medium text-foreground">description</span> — service description</p>
-              <p><span className="font-medium text-foreground">hsn_code</span> — optional HSN/SAC code</p>
-              <p><span className="font-medium text-foreground">payment_due_days</span> — default 7</p>
+              <p><span className="font-medium text-foreground">description, hsn_code, payment_due_days</span> — optional</p>
             </div>
           </details>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={handleClose}>Close</Button>
-          <Button onClick={handleImport} disabled={!file || isUploading || !!result}>
+        <SheetFooter className="px-4">
+          <Button onClick={handleImport} disabled={!file || isUploading || !!result} className="w-full">
             {isUploading ? (
               <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Importing…</>
             ) : (
               <><Upload className="h-4 w-4 mr-2" />Import</>
             )}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   )
 }
