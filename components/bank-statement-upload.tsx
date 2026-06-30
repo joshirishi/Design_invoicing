@@ -1,129 +1,194 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Upload, FileText } from "lucide-react"
-import { fetchFromAPI } from "@/lib/fetch"
+import { Upload, FileText, CheckCircle2, AlertCircle, Loader2, Sparkles } from "lucide-react"
 import { useRouter } from "next/navigation"
+
+const ACCEPTED = ".csv,.xls,.xlsx,.pdf"
+const FORMAT_LABELS: Record<string, string> = {
+  csv: "CSV",
+  xls: "Excel (XLS)",
+  xlsx: "Excel (XLSX)",
+  pdf: "PDF",
+}
+
+interface UploadResult {
+  inserted: number
+  skipped: number
+  total: number
+  autoMatched: number
+  batchId: string
+}
 
 export function BankStatementUpload() {
   const router = useRouter()
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [result, setResult] = useState<UploadResult | null>(null)
   const [file, setFile] = useState<File | null>(null)
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0]
-    if (selectedFile) {
-      setFile(selectedFile)
+    const selected = e.target.files?.[0]
+    if (selected) {
+      setFile(selected)
       setError(null)
+      setResult(null)
     }
   }
 
-  const parseCSV = (text: string) => {
-    const lines = text.split("\n").filter((line) => line.trim())
-    const headers = lines[0].split(",").map((h) => h.trim().toLowerCase())
-
-    const transactions = []
-    for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(",")
-      const transaction: Record<string, string> = {}
-
-      headers.forEach((header, index) => {
-        transaction[header] = values[index]?.trim() || ""
-      })
-
-      transactions.push(transaction)
+  const handleDrop = (e: React.DragEvent<HTMLLabelElement>) => {
+    e.preventDefault()
+    const dropped = e.dataTransfer.files[0]
+    if (dropped) {
+      setFile(dropped)
+      setError(null)
+      setResult(null)
     }
-
-    return transactions
   }
 
   const handleUpload = async () => {
-    if (!file) {
-      setError("Please select a file")
+    if (!file) { setError("Please select a file"); return }
+
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? ""
+    if (!["csv", "xls", "xlsx", "pdf"].includes(ext)) {
+      setError(`".${ext}" is not supported. Use CSV, XLS, XLSX or PDF.`)
       return
     }
 
     setIsUploading(true)
     setError(null)
+    setResult(null)
 
     try {
-      const text = await file.text()
-      const transactions = parseCSV(text)
+      const formData = new FormData()
+      formData.append("file", file)
 
-      const formattedTransactions = transactions.map((t) => ({
-        transaction_date: t.date || t["transaction date"] || new Date().toISOString().split("T")[0],
-        description: t.description || t.narration || t.particulars || "",
-        reference_number: t.reference || t["ref no"] || t["cheque no"] || null,
-        debit: t.debit ? Number.parseFloat(t.debit.replace(/[^0-9.-]/g, "")) : null,
-        credit: t.credit ? Number.parseFloat(t.credit.replace(/[^0-9.-]/g, "")) : null,
-        balance: t.balance ? Number.parseFloat(t.balance.replace(/[^0-9.-]/g, "")) : null,
-        reconciled: false,
-      }))
-
-      await fetchFromAPI("/api/bank-transactions", {
+      const res = await fetch("/api/bank-statements/upload", {
         method: "POST",
-        body: JSON.stringify({ transactions: formattedTransactions }),
+        body: formData,
       })
 
+      const json = await res.json()
+
+      if (!res.ok) {
+        setError(json.error ?? "Upload failed")
+        return
+      }
+
+      setResult(json as UploadResult)
       setFile(null)
+      // Reset the file input
+      const input = document.getElementById("bank-file-upload") as HTMLInputElement
+      if (input) input.value = ""
       router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to upload bank statement")
+      setError(err instanceof Error ? err.message : "Upload failed")
     } finally {
       setIsUploading(false)
     }
   }
+
+  const ext = file?.name.split(".").pop()?.toLowerCase() ?? ""
+  const formatLabel = FORMAT_LABELS[ext] ?? "File"
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Upload Bank Statement</CardTitle>
         <CardDescription>
-          Upload your bank statement in CSV format. Supported columns: Date, Description, Debit, Credit, Balance,
-          Reference
+          Supports CSV, Excel (XLS/XLSX), and PDF from ICICI and most Indian banks.
+          Duplicates are automatically skipped.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          <div className="flex items-center gap-4">
-            <label
-              htmlFor="file-upload"
-              className="flex items-center gap-2 px-4 py-2 border rounded-lg cursor-pointer hover:bg-muted"
-            >
-              <FileText className="h-4 w-4" />
-              <span className="text-sm">{file ? file.name : "Choose CSV file"}</span>
-              <input
-                id="file-upload"
-                type="file"
-                accept=".csv"
-                onChange={handleFileChange}
-                className="hidden"
-                disabled={isUploading}
-              />
-            </label>
-            <Button onClick={handleUpload} disabled={!file || isUploading}>
-              <Upload className="h-4 w-4 mr-2" />
-              {isUploading ? "Uploading..." : "Upload"}
-            </Button>
-          </div>
+          {/* Drop zone */}
+          <label
+            htmlFor="bank-file-upload"
+            onDrop={handleDrop}
+            onDragOver={(e) => e.preventDefault()}
+            className="flex flex-col items-center justify-center gap-2 w-full min-h-[120px] border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/40 transition-colors px-4 py-6 text-center"
+          >
+            {file ? (
+              <>
+                <FileText className="h-8 w-8 text-primary" />
+                <span className="text-sm font-medium">{file.name}</span>
+                <span className="text-xs text-muted-foreground">{formatLabel} · {(file.size / 1024).toFixed(0)} KB</span>
+              </>
+            ) : (
+              <>
+                <Upload className="h-8 w-8 text-muted-foreground" />
+                <span className="text-sm font-medium">Drop your bank statement here</span>
+                <span className="text-xs text-muted-foreground">CSV · XLS · XLSX · PDF</span>
+              </>
+            )}
+            <input
+              id="bank-file-upload"
+              type="file"
+              accept={ACCEPTED}
+              onChange={handleFileChange}
+              className="hidden"
+              disabled={isUploading}
+            />
+          </label>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          <Button
+            onClick={handleUpload}
+            disabled={!file || isUploading}
+            className="w-full sm:w-auto"
+          >
+            {isUploading ? (
+              <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Uploading…</>
+            ) : (
+              <><Upload className="h-4 w-4 mr-2" />Upload Statement</>
+            )}
+          </Button>
 
-          <div className="text-sm text-muted-foreground">
-            <p className="font-medium mb-2">CSV Format Example:</p>
-            <pre className="bg-muted p-3 rounded-lg text-xs overflow-x-auto">
-              Date,Description,Debit,Credit,Balance,Reference
-              <br />
-              01/09/2025,Payment received,0,282630,500000,TXN123
-              <br />
-              02/09/2025,Service charge,500,0,499500,CHG456
-            </pre>
-          </div>
+          {/* Error */}
+          {error && (
+            <div className="flex items-start gap-2 text-sm text-destructive">
+              <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {/* Success result */}
+          {result && (
+            <div className="flex flex-col gap-1 text-sm border rounded-lg p-4 bg-muted/30">
+              <div className="flex items-center gap-2 font-medium text-green-700 dark:text-green-400">
+                <CheckCircle2 className="h-4 w-4" />
+                Upload complete
+              </div>
+              <span className="text-muted-foreground">
+                {result.inserted} new transactions added · {result.skipped} duplicates skipped
+              </span>
+              {result.autoMatched > 0 && (
+                <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 mt-1">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span>{result.autoMatched} transaction{result.autoMatched > 1 ? "s" : ""} auto-reconciled with invoices</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Format hint */}
+          {!result && (
+            <details className="text-sm text-muted-foreground">
+              <summary className="cursor-pointer font-medium mb-2">Expected column names</summary>
+              <pre className="bg-muted p-3 rounded-lg text-xs overflow-x-auto">
+{`CSV / Excel:
+  Date, Description, Debit, Credit, Balance, Reference
+  — or ICICI format: Txn Date, Withdrawal Amt, Deposit Amt, Closing Balance
+
+PDF:
+  ICICI account/credit card PDF statements are supported.
+  Text extraction is automatic.`}
+              </pre>
+            </details>
+          )}
         </div>
       </CardContent>
     </Card>

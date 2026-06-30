@@ -4,6 +4,7 @@ import { Plus, AlertCircle } from "lucide-react"
 import Link from "next/link"
 import { InvoiceList } from "@/components/invoice-list"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { InvoiceImportModal } from "@/components/invoice-import-modal"
 
 export const dynamic = "force-dynamic"
 
@@ -25,12 +26,15 @@ export default async function InvoicesPage() {
               <h1 className="text-3xl font-bold tracking-tight">Invoices</h1>
               <p className="text-muted-foreground">Manage and track all your invoices</p>
             </div>
-            <Link href="/dashboard/invoices/new">
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                New Invoice
-              </Button>
-            </Link>
+            <div className="flex items-center gap-2">
+              <InvoiceImportModal />
+              <Link href="/dashboard/invoices/new">
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  New Invoice
+                </Button>
+              </Link>
+            </div>
           </div>
 
           <InvoiceList invoices={invoices} />

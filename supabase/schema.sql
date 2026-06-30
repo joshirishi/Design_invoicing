@@ -85,6 +85,7 @@ CREATE TABLE IF NOT EXISTS invoices (
   status VARCHAR(50) NOT NULL DEFAULT 'unpaid',
   payment_due_days INTEGER NOT NULL DEFAULT 7,
   sent_at TIMESTAMP WITH TIME ZONE,
+  import_source VARCHAR(50),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(org_id, invoice_number)
@@ -118,6 +119,10 @@ CREATE TABLE IF NOT EXISTS bank_transactions (
   balance DECIMAL(12, 2),
   reconciled BOOLEAN DEFAULT FALSE,
   payment_id INTEGER REFERENCES payments(id) ON DELETE SET NULL,
+  category VARCHAR(100),
+  category_source VARCHAR(50),
+  upload_batch_id VARCHAR(50),
+  source_format VARCHAR(20),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

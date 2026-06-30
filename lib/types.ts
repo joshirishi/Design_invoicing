@@ -49,6 +49,7 @@ export interface Invoice {
   status: "paid" | "unpaid" | "partially_paid" | "overdue"
   payment_due_days: number
   sent_at: string | null
+  import_source: string | null
   created_at: string
   updated_at: string
   client?: Client
@@ -82,6 +83,10 @@ export interface BankTransaction {
   balance: number | null
   reconciled: boolean
   payment_id: string | null
+  category: string | null
+  category_source: string | null
+  upload_batch_id: string | null
+  source_format: string | null
   created_at: string
   payment?: Partial<Payment>
 }
