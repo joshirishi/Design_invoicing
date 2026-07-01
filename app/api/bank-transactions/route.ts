@@ -3,6 +3,8 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getCurrentOrgId } from "@/lib/get-org"
 import { categorize, fetchRules } from "@/lib/categorize"
 
+export const dynamic = "force-dynamic"
+
 // GET /api/bank-transactions?offset=0&limit=50&type=credits|debits|reconciled
 export async function GET(request: NextRequest) {
   try {

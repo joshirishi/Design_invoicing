@@ -2,21 +2,33 @@ import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 import { getCurrentOrgId } from "@/lib/get-org"
 
+export const dynamic = "force-dynamic"
+
 export async function GET(request: NextRequest) {
   try {
     const orgId = await getCurrentOrgId()
-    const rawLimit = parseInt(new URL(request.url).searchParams.get("limit") ?? "3", 10)
+    const { searchParams } = new URL(request.url)
+    const offset = parseInt(searchParams.get("offset") ?? "0", 10)
+    const limit  = parseInt(searchParams.get("limit")  ?? "50", 10)
 
-    // Hypothesis: LIMIT with interpolated number fails vs hardcoded
-    const hardcoded = await sql`SELECT id, credit FROM bank_transactions WHERE org_id = ${orgId} AND credit > 0 ORDER BY id DESC LIMIT 3`
-    const interpolated = await sql`SELECT id, credit FROM bank_transactions WHERE org_id = ${orgId} AND credit > 0 ORDER BY id DESC LIMIT ${rawLimit}`
+    const transactions = await sql`
+      SELECT id, transaction_date, description, credit, debit, reconciled
+      FROM bank_transactions
+      WHERE org_id = ${orgId} AND credit > 0 AND reconciled = false
+      ORDER BY transaction_date DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `
 
-    // Also test: is rawLimit actually a number type?
-    const limitType = typeof rawLimit
-    const limitValue = rawLimit
-    const isFinite = Number.isFinite(rawLimit)
+    const counts = await sql`
+      SELECT
+        COUNT(*) FILTER (WHERE credit > 0 AND reconciled = false) AS credits,
+        COUNT(*) FILTER (WHERE debit  > 0 AND reconciled = false) AS debits,
+        COUNT(*) FILTER (WHERE reconciled = true)                 AS reconciled
+      FROM bank_transactions
+      WHERE org_id = ${orgId}
+    `
 
-    return NextResponse.json({ orgId, hardcoded, interpolated, limitType, limitValue, isFinite })
+    return NextResponse.json({ orgId, offset, limit, txnCount: transactions.length, counts: counts[0] ?? null })
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 })
   }
