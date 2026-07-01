@@ -22,8 +22,6 @@ interface BankTxn {
   category: string | null
   category_source: string | null
   payment_id: string | null
-  payment_amount: number | null
-  matched_invoice: string | null
 }
 
 interface Payment {
@@ -216,10 +214,8 @@ export function ReconciliationView({ payments }: { payments: Payment[] }) {
                               source={txn.category_source ?? undefined}
                             />
                           )}
-                          {activeTab === "reconciled" && txn.matched_invoice && (
-                            <Badge className="bg-green-500/10 text-green-700 text-xs">
-                              {txn.matched_invoice}
-                            </Badge>
+                          {activeTab === "reconciled" && txn.payment_id && (
+                            <Badge className="bg-green-500/10 text-green-700 text-xs">Matched</Badge>
                           )}
                         </div>
                         {txn.reference_number && (

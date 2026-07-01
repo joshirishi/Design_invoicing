@@ -12,46 +12,38 @@ export async function GET(request: NextRequest) {
     const limit  = parseInt(searchParams.get("limit")  ?? "50", 10)
     const type   = searchParams.get("type") ?? "credits"
 
-    // Use separate static sql`` calls per tab — avoids dynamic WHERE issues
+    // Simple flat queries — no JOINs. The sql`` tagged template returns empty
+    // when used with LEFT JOINs via the exec_sql RPC layer; plain selects work reliably.
+    // matched_invoice is loaded separately when a row is reconciled.
     let transactions
     if (type === "debits") {
       transactions = await sql`
-        SELECT bt.id, bt.transaction_date, bt.description, bt.reference_number,
-               bt.debit, bt.credit, bt.balance, bt.reconciled,
-               bt.category, bt.category_source, bt.payment_id,
-               p.amount AS payment_amount, i.invoice_number AS matched_invoice
-        FROM bank_transactions bt
-        LEFT JOIN payments p ON bt.payment_id = p.id
-        LEFT JOIN invoices i ON p.invoice_id = i.id
-        WHERE bt.org_id = ${orgId} AND bt.debit > 0 AND bt.reconciled = false
-        ORDER BY bt.transaction_date DESC
+        SELECT id, transaction_date, description, reference_number,
+               debit, credit, balance, reconciled,
+               category, category_source, payment_id
+        FROM bank_transactions
+        WHERE org_id = ${orgId} AND debit > 0 AND reconciled = false
+        ORDER BY transaction_date DESC
         LIMIT ${limit} OFFSET ${offset}
       `
     } else if (type === "reconciled") {
       transactions = await sql`
-        SELECT bt.id, bt.transaction_date, bt.description, bt.reference_number,
-               bt.debit, bt.credit, bt.balance, bt.reconciled,
-               bt.category, bt.category_source, bt.payment_id,
-               p.amount AS payment_amount, i.invoice_number AS matched_invoice
-        FROM bank_transactions bt
-        LEFT JOIN payments p ON bt.payment_id = p.id
-        LEFT JOIN invoices i ON p.invoice_id = i.id
-        WHERE bt.org_id = ${orgId} AND bt.reconciled = true
-        ORDER BY bt.transaction_date DESC
+        SELECT id, transaction_date, description, reference_number,
+               debit, credit, balance, reconciled,
+               category, category_source, payment_id
+        FROM bank_transactions
+        WHERE org_id = ${orgId} AND reconciled = true
+        ORDER BY transaction_date DESC
         LIMIT ${limit} OFFSET ${offset}
       `
     } else {
-      // Default: credits
       transactions = await sql`
-        SELECT bt.id, bt.transaction_date, bt.description, bt.reference_number,
-               bt.debit, bt.credit, bt.balance, bt.reconciled,
-               bt.category, bt.category_source, bt.payment_id,
-               p.amount AS payment_amount, i.invoice_number AS matched_invoice
-        FROM bank_transactions bt
-        LEFT JOIN payments p ON bt.payment_id = p.id
-        LEFT JOIN invoices i ON p.invoice_id = i.id
-        WHERE bt.org_id = ${orgId} AND bt.credit > 0 AND bt.reconciled = false
-        ORDER BY bt.transaction_date DESC
+        SELECT id, transaction_date, description, reference_number,
+               debit, credit, balance, reconciled,
+               category, category_source, payment_id
+        FROM bank_transactions
+        WHERE org_id = ${orgId} AND credit > 0 AND reconciled = false
+        ORDER BY transaction_date DESC
         LIMIT ${limit} OFFSET ${offset}
       `
     }
