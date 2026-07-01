@@ -7,8 +7,9 @@ import { type ParsedBankRow, parseAmount, parseDate } from "./types"
 // or credit card statement:
 //   "04-MAY-25  Late Payment Fee  900.00  900.00"
 export async function parsePdfBank(buffer: Buffer): Promise<ParsedBankRow[]> {
-  // Dynamically import pdf-parse to avoid issues with Next.js edge bundling
-  const pdfParse = (await import("pdf-parse")).default
+  // Import the internal module directly to avoid pdf-parse v1's test-runner
+  // which tries to open './test/data/05-versions-space.pdf' and fails in production
+  const pdfParse = (await import("pdf-parse/lib/pdf-parse.js")).default
   const data = await pdfParse(buffer)
   const text = data.text
 

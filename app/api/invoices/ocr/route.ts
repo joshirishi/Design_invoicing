@@ -82,7 +82,8 @@ export async function POST(request: NextRequest) {
 
     if (ext === "pdf") {
       // Extract text first, then ask the model to structure it
-      const pdfParse = (await import("pdf-parse")).default
+      // Import internal module to bypass pdf-parse v1's test runner (ENOENT fix)
+      const pdfParse = (await import("pdf-parse/lib/pdf-parse.js")).default
       const pdfData = await pdfParse(buffer)
       const text = pdfData.text?.trim()
 
