@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { rawSql } from "@/lib/db"
+import { sql, rawSql } from "@/lib/db"
 import { getCurrentOrgId } from "@/lib/get-org"
 import { categorize, fetchRules } from "@/lib/categorize"
 import { parseCsvBank } from "@/lib/parsers/csv-bank"
