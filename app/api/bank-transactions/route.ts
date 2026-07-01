@@ -49,6 +49,8 @@ export async function GET(request: NextRequest) {
     `)
 
     return NextResponse.json({
+      _v: "rawSql-v2",
+      _at: new Date().toISOString(),
       transactions,
       counts: counts[0] ?? { credits: 0, debits: 0, reconciled: 0 },
       offset,
