@@ -126,6 +126,23 @@ CREATE TABLE IF NOT EXISTS bank_transactions (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Invoice line items (multi-line invoice support)
+CREATE TABLE IF NOT EXISTS invoice_line_items (
+  id          SERIAL PRIMARY KEY,
+  invoice_id  INTEGER NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
+  org_id      INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  description TEXT NOT NULL,
+  hsn_code    VARCHAR(50),
+  quantity    DECIMAL(10,3) NOT NULL DEFAULT 1,
+  rate        DECIMAL(12,2) NOT NULL DEFAULT 0,
+  cgst_rate   DECIMAL(5,2)  NOT NULL DEFAULT 9,
+  sgst_rate   DECIMAL(5,2)  NOT NULL DEFAULT 9,
+  cgst_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  sgst_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  amount      DECIMAL(12,2) NOT NULL DEFAULT 0,
+  sort_order  INTEGER       NOT NULL DEFAULT 0
+);
+
 -- Purchases / input GST
 CREATE TABLE IF NOT EXISTS purchases (
   id SERIAL PRIMARY KEY,

@@ -1,14 +1,32 @@
-# cursor-design-personas
+# Analyzthis_Design
 
 7 AI design personas for Cursor. Run structured UX critiques and multi-phase ideation sessions — right inside your AI chat.
 
 ## Install
 
+Works with **Cursor**, **Claude Code**, and **Codex CLI**.
+
 ```bash
-npx cursor-design-personas
+# Cursor (default)
+npx analyzthis_design
+
+# Claude Code
+npx analyzthis_design --target claude
+
+# Codex CLI
+npx analyzthis_design --target codex
+
+# All three at once
+npx analyzthis_design --target all
 ```
 
-That's it. Skills are copied to `~/.cursor/skills/` and available immediately in any Cursor project.
+Skills are copied to the correct directory for each tool and available immediately.
+
+| Tool | Install path |
+|---|---|
+| Cursor | `~/.cursor/skills/` |
+| Claude Code | `~/.claude/commands/` |
+| Codex CLI | `~/.codex/skills/` |
 
 ---
 
@@ -94,17 +112,28 @@ The 6-phase workflow runs:
 ## CLI commands
 
 ```bash
-# Install (default)
-npx cursor-design-personas
+# Install for Cursor (default)
+npx analyzthis_design
+
+# Install for Claude Code
+npx analyzthis_design --target claude
+
+# Install for Codex CLI
+npx analyzthis_design --target codex
+
+# Install for all tools at once
+npx analyzthis_design --target all
 
 # Force overwrite existing skills
-npx cursor-design-personas install --force
+npx analyzthis_design --target all --force
 
-# Remove all installed skills
-npx cursor-design-personas remove
+# Remove all installed skills (from a specific tool)
+npx analyzthis_design remove --target cursor
+npx analyzthis_design remove --target all
 
 # Check what's installed
-npx cursor-design-personas list
+npx analyzthis_design list
+npx analyzthis_design list --target all
 ```
 
 ---

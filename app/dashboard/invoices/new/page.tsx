@@ -33,9 +33,11 @@ export default async function NewInvoicePage() {
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Database Setup Required</AlertTitle>
               <AlertDescription>
-                The database tables haven't been created yet. Please run the SQL script{" "}
-                <code className="bg-muted px-1 py-0.5 rounded">scripts/001_create_neon_schema.sql</code> to set up your
-                database.
+                Tables are missing. Visit{" "}
+                <a href="/api/init-db" className="underline font-medium">/api/init-db</a>{" "}
+                then{" "}
+                <a href="/api/migrations/invoice-items" className="underline font-medium">/api/migrations/invoice-items</a>{" "}
+                to set up the database.
               </AlertDescription>
             </Alert>
           </div>

@@ -9,6 +9,19 @@ Four specialist personas evaluate a design independently across UX, business, fe
 
 ---
 
+## Step -1: Load knowledge bank (highest priority)
+
+Before anything else, read `~/.cursor/skills/knowledge-bank/SKILL.md` (or `~/.claude/commands/knowledge-bank.md` / `~/.codex/skills/knowledge-bank.md` depending on your tool).
+
+If the knowledge bank has content (i.e. it is not the "No knowledge bank connected yet" placeholder):
+- Treat every section in the knowledge bank as **ground truth** for this project
+- Brand guidelines, design decisions, product context, and research insights override your built-in defaults
+- Reference specific knowledge bank entries when scoring or critiquing — quote them directly when relevant
+
+If the knowledge bank is empty or missing, proceed without it.
+
+---
+
 ## Step 0: Gather session context
 
 Before starting, ask the user for (or read from `_session-context` if available):

@@ -1,10 +1,13 @@
 {
-  "name": "cursor-design-personas",
-  "version": "1.1.0",
+  "name": "analyzthis_design",
+  "version": "1.4.0",
   "description": "7 AI design personas for Cursor — run structured UX critiques and ideation sessions with Arjun (UX), Meera (Business), Priya (Feasibility), Zara (Delight), Noor (IA), Anuj (Power-User), and Raj (Arbitrator).",
   "keywords": [
     "cursor",
     "cursor-skill",
+    "claude",
+    "claude-command",
+    "codex",
     "ai-persona",
     "ux",
     "design",
@@ -14,18 +17,22 @@
   "author": "Rishikesh Joshi",
   "license": "MIT",
   "bin": {
-    "cursor-design-personas": "bin/cli.js"
+    "analyzthis_design": "dist/bin/cli.js"
   },
   "files": [
-    "bin/",
-    "lib/",
+    "dist/",
     "skills/",
     "README.md"
   ],
   "scripts": {
-    "postinstall": "node lib/install.js --silent"
+    "build": "node scripts/obfuscate.js",
+    "prepublishOnly": "npm run build",
+    "postinstall": "node dist/lib/install.js --silent"
   },
   "engines": {
     "node": ">=16"
+  },
+  "devDependencies": {
+    "javascript-obfuscator": "^5.4.3"
   }
 }

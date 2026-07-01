@@ -55,6 +55,22 @@ export interface Invoice {
   client?: Client
 }
 
+export interface InvoiceLineItem {
+  id?: string
+  invoice_id?: string
+  org_id?: number
+  description: string
+  hsn_code: string | null
+  quantity: number
+  rate: number
+  cgst_rate: number
+  sgst_rate: number
+  cgst_amount: number
+  sgst_amount: number
+  amount: number        // rate × quantity (before tax)
+  sort_order?: number
+}
+
 export interface Payment {
   id: string
   org_id: number

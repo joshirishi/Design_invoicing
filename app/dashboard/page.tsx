@@ -31,13 +31,13 @@ export default async function DashboardPage() {
               <p className="text-muted-foreground">Welcome to your invoice management system</p>
             </div>
 
-            <Alert variant="destructive">
+            <Alert>
               <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Database Setup Required</AlertTitle>
+              <AlertTitle>No data yet</AlertTitle>
               <AlertDescription>
-                The database tables haven't been created yet. Please run the SQL script{" "}
-                <code className="bg-muted px-1 py-0.5 rounded">scripts/001_create_neon_schema.sql</code> from the
-                Scripts section to set up your database.
+                Create your first invoice or client to get started. If you see database errors, visit{" "}
+                <a href="/api/migrations/invoice-items" className="underline font-medium">/api/migrations/invoice-items</a>{" "}
+                to apply the latest schema migrations.
               </AlertDescription>
             </Alert>
 
@@ -46,14 +46,11 @@ export default async function DashboardPage() {
                 <CardTitle>Getting Started</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <p className="text-sm text-muted-foreground">To get started with your invoice management system:</p>
+                <p className="text-sm text-muted-foreground">Welcome! Here's how to begin:</p>
                 <ol className="list-decimal list-inside space-y-1 text-sm text-muted-foreground">
-                  <li>Navigate to the Scripts section in the sidebar</li>
-                  <li>
-                    Run the <code className="bg-muted px-1 py-0.5 rounded">001_create_neon_schema.sql</code> script
-                  </li>
-                  <li>Wait for the script to complete</li>
-                  <li>Refresh this page to see your dashboard</li>
+                  <li>Go to <strong>Clients</strong> and add your first client</li>
+                  <li>Go to <strong>Invoices</strong> and create your first invoice</li>
+                  <li>Upload a bank statement under <strong>Reconciliation</strong></li>
                 </ol>
               </CardContent>
             </Card>
@@ -246,28 +243,12 @@ export default async function DashboardPage() {
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Database Setup Required</AlertTitle>
               <AlertDescription>
-                The database tables haven't been created yet. Please run the SQL script{" "}
-                <code className="bg-muted px-1 py-0.5 rounded">scripts/001_create_neon_schema.sql</code> from the
-                Scripts section to set up your database.
+                Database tables are missing. Run these migrations once:{" "}
+                <a href="/api/init-db" className="underline font-medium">/api/init-db</a>,{" "}
+                <a href="/api/migrations/bank-v2" className="underline font-medium">/api/migrations/bank-v2</a>,{" "}
+                <a href="/api/migrations/invoice-items" className="underline font-medium">/api/migrations/invoice-items</a>.
               </AlertDescription>
             </Alert>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Getting Started</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <p className="text-sm text-muted-foreground">To get started with your invoice management system:</p>
-                <ol className="list-decimal list-inside space-y-1 text-sm text-muted-foreground">
-                  <li>Navigate to the Scripts section in the sidebar</li>
-                  <li>
-                    Run the <code className="bg-muted px-1 py-0.5 rounded">001_create_neon_schema.sql</code> script
-                  </li>
-                  <li>Wait for the script to complete</li>
-                  <li>Refresh this page to see your dashboard</li>
-                </ol>
-              </CardContent>
-            </Card>
           </div>
         
       )

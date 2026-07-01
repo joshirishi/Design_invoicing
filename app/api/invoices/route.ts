@@ -27,7 +27,26 @@ export async function POST(request: NextRequest) {
       invoice_number, client_id, invoice_date, service_date, description,
       hsn_code, amount_before_tax, cgst_rate, sgst_rate, cgst_amount,
       sgst_amount, total_amount, terms, status, payment_due_days,
+      line_items, // optional array of InvoiceLineItem
     } = body
+
+    // If line_items provided, compute totals from them
+    const hasLineItems = Array.isArray(line_items) && line_items.length > 0
+    const finalAmountBeforeTax  = hasLineItems
+      ? line_items.reduce((s: number, r: any) => s + Number(r.amount), 0)
+      : Number(amount_before_tax)
+    const finalCgstAmount  = hasLineItems
+      ? line_items.reduce((s: number, r: any) => s + Number(r.cgst_amount), 0)
+      : Number(cgst_amount)
+    const finalSgstAmount  = hasLineItems
+      ? line_items.reduce((s: number, r: any) => s + Number(r.sgst_amount), 0)
+      : Number(sgst_amount)
+    const finalTotal = finalAmountBeforeTax + finalCgstAmount + finalSgstAmount
+    // Use first line item's rates as header-level rates, or supplied values
+    const finalCgstRate = hasLineItems ? Number(line_items[0].cgst_rate) : Number(cgst_rate)
+    const finalSgstRate = hasLineItems ? Number(line_items[0].sgst_rate) : Number(sgst_rate)
+    // Header description = first line item description when multi-line
+    const finalDescription = hasLineItems ? line_items[0].description : description
 
     const result = await sql`
       INSERT INTO invoices (
@@ -36,14 +55,36 @@ export async function POST(request: NextRequest) {
         sgst_amount, total_amount, terms, status, payment_due_days
       ) VALUES (
         ${orgId}, ${invoice_number}, ${client_id}, ${invoice_date},
-        ${service_date || null}, ${description}, ${hsn_code || null},
-        ${amount_before_tax}, ${cgst_rate}, ${sgst_rate}, ${cgst_amount},
-        ${sgst_amount}, ${total_amount}, ${terms || null},
+        ${service_date || null}, ${finalDescription}, ${hasLineItems ? null : (hsn_code || null)},
+        ${finalAmountBeforeTax}, ${finalCgstRate}, ${finalSgstRate}, ${finalCgstAmount},
+        ${finalSgstAmount}, ${finalTotal}, ${terms || null},
         ${status || "unpaid"}, ${payment_due_days || 7}
       )
       RETURNING *
     `
-    return NextResponse.json(result[0])
+    const invoice = result[0]
+
+    // Insert line items if provided
+    if (hasLineItems) {
+      for (let i = 0; i < line_items.length; i++) {
+        const row = line_items[i]
+        await sql`
+          INSERT INTO invoice_line_items (
+            invoice_id, org_id, description, hsn_code,
+            quantity, rate, cgst_rate, sgst_rate,
+            cgst_amount, sgst_amount, amount, sort_order
+          ) VALUES (
+            ${invoice.id}, ${orgId}, ${row.description}, ${row.hsn_code || null},
+            ${Number(row.quantity) || 1}, ${Number(row.rate)},
+            ${Number(row.cgst_rate)}, ${Number(row.sgst_rate)},
+            ${Number(row.cgst_amount)}, ${Number(row.sgst_amount)},
+            ${Number(row.amount)}, ${i}
+          )
+        `
+      }
+    }
+
+    return NextResponse.json(invoice)
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }

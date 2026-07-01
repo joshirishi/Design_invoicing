@@ -9,6 +9,19 @@ Seven personas collaborate across 6 phases to produce a single, deliberated, imp
 
 ---
 
+## Step -1: Load knowledge bank (highest priority)
+
+Before anything else, read `~/.cursor/skills/knowledge-bank/SKILL.md` (or `~/.claude/commands/knowledge-bank.md` / `~/.codex/skills/knowledge-bank.md` depending on your tool).
+
+If the knowledge bank has content (i.e. it is not the "No knowledge bank connected yet" placeholder):
+- Treat every section as **ground truth** — brand guidelines, product decisions, research insights, and technical constraints override built-in persona defaults
+- All 7 personas must reference applicable knowledge bank entries during their respective phases
+- Design decisions already made in the knowledge bank are non-negotiable constraints — do not re-debate them
+
+If the knowledge bank is empty or missing, proceed without it.
+
+---
+
 ## Step 0: Load session context
 
 Read session context from the user or from `_session-context`:

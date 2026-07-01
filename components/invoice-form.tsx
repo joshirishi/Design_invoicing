@@ -1,8 +1,7 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { fetchFromAPI } from "@/lib/fetch"
 import { Button } from "@/components/ui/button"
@@ -11,80 +10,135 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import type { Client, Profile } from "@/lib/types"
+import { Plus, Trash2, AlertCircle } from "lucide-react"
+import type { Client, Profile, InvoiceLineItem } from "@/lib/types"
+
+// Standard Indian GST rate combos — (combined%, CGST%, SGST%)
+const GST_OPTIONS = [
+  { label: "0% GST",  combined: 0,  half: 0 },
+  { label: "5% GST",  combined: 5,  half: 2.5 },
+  { label: "12% GST", combined: 12, half: 6 },
+  { label: "18% GST", combined: 18, half: 9 },
+  { label: "28% GST", combined: 28, half: 14 },
+]
+
+interface LineItemRow {
+  description: string
+  hsn_code: string
+  quantity: string
+  rate: string
+  gst_combined: number   // 0 | 5 | 12 | 18 | 28
+}
+
+function emptyRow(): LineItemRow {
+  return { description: "", hsn_code: "998314", quantity: "1", rate: "", gst_combined: 18 }
+}
+
+function computeRow(row: LineItemRow): InvoiceLineItem {
+  const qty  = parseFloat(row.quantity) || 1
+  const rate = parseFloat(row.rate)     || 0
+  const gst  = GST_OPTIONS.find((o) => o.combined === row.gst_combined) ?? GST_OPTIONS[3]
+  const amount    = Math.round(qty * rate * 100) / 100
+  const cgstAmt   = Math.round(amount * (gst.half / 100) * 100) / 100
+  const sgstAmt   = cgstAmt
+  return {
+    description: row.description,
+    hsn_code:    row.hsn_code || null,
+    quantity:    qty,
+    rate,
+    cgst_rate:   gst.half,
+    sgst_rate:   gst.half,
+    cgst_amount: cgstAmt,
+    sgst_amount: sgstAmt,
+    amount,
+  }
+}
 
 interface InvoiceFormProps {
   clients: Client[]
   profile: Profile | null
+  initialData?: {
+    line_items?: InvoiceLineItem[]
+    [key: string]: unknown
+  }
 }
 
 export function InvoiceForm({ clients, profile }: InvoiceFormProps) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError]   = useState<string | null>(null)
 
-  const [formData, setFormData] = useState({
-    client_id: "",
-    invoice_number: "",
-    invoice_date: new Date().toISOString().split("T")[0],
-    description: "",
-    hsn_code: "998314",
-    service_date: new Date().toISOString().split("T")[0],
-    amount_before_tax: "",
-    cgst_rate: "9",
-    sgst_rate: "9",
-    payment_due_days: "7",
-    terms:
-      "Invoices are payable within seven days upon receipt. Design documents including, but not limited to, sketches/comps, designs, illustrations, photography, models, and all other design documents are the exclusive property of Designer.",
+  const [header, setHeader] = useState({
+    client_id:        "",
+    invoice_number:   "",
+    invoice_date:     new Date().toISOString().split("T")[0],
+    service_date:     new Date().toISOString().split("T")[0],
+    payment_due_days: "30",
+    terms: "Payment due within the agreed terms. All design documents remain the exclusive property of the designer until payment is received in full.",
   })
 
-  const calculateTax = () => {
-    const amount = Number(formData.amount_before_tax) || 0
-    const cgstRate = Number(formData.cgst_rate) || 0
-    const sgstRate = Number(formData.sgst_rate) || 0
+  const [rows, setRows] = useState<LineItemRow[]>([emptyRow()])
 
-    const cgstAmount = (amount * cgstRate) / 100
-    const sgstAmount = (amount * sgstRate) / 100
-    const totalAmount = amount + cgstAmount + sgstAmount
+  const updateHeader = (field: string, value: string) =>
+    setHeader((prev) => ({ ...prev, [field]: value }))
 
-    return { cgstAmount, sgstAmount, totalAmount }
-  }
+  const updateRow = useCallback((index: number, field: keyof LineItemRow, value: string | number) => {
+    setRows((prev) => prev.map((r, i) => i === index ? { ...r, [field]: value } : r))
+  }, [])
 
-  const { cgstAmount, sgstAmount, totalAmount } = calculateTax()
+  const addRow = () => setRows((prev) => [...prev, emptyRow()])
+
+  const removeRow = (index: number) =>
+    setRows((prev) => prev.length > 1 ? prev.filter((_, i) => i !== index) : prev)
+
+  // Computed totals
+  const computed = rows.map(computeRow)
+  const subtotal    = computed.reduce((s, r) => s + r.amount, 0)
+  const totalCgst   = computed.reduce((s, r) => s + r.cgst_amount, 0)
+  const totalSgst   = computed.reduce((s, r) => s + r.sgst_amount, 0)
+  const grandTotal  = subtotal + totalCgst + totalSgst
+
+  const fmt = (n: number) =>
+    n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!header.client_id)  { setError("Please select a client"); return }
+    if (!header.invoice_number) { setError("Invoice number is required"); return }
+    if (rows.some((r) => !r.description || !r.rate)) {
+      setError("Each line item needs a description and rate"); return
+    }
+
     setIsLoading(true)
     setError(null)
 
     try {
-      const invoiceData = {
-        client_id: Number(formData.client_id),
-        invoice_number: formData.invoice_number,
-        invoice_date: formData.invoice_date,
-        service_date: formData.service_date || null,
-        description: formData.description,
-        hsn_code: formData.hsn_code || null,
-        amount_before_tax: Number(formData.amount_before_tax),
-        cgst_rate: Number(formData.cgst_rate),
-        sgst_rate: Number(formData.sgst_rate),
-        cgst_amount: cgstAmount,
-        sgst_amount: sgstAmount,
-        total_amount: totalAmount,
-        terms: formData.terms || null,
-        status: "unpaid",
-        payment_due_days: Number(formData.payment_due_days),
-      }
+      const line_items = computed
 
       const result = await fetchFromAPI("/api/invoices", {
         method: "POST",
-        body: JSON.stringify(invoiceData),
+        body: JSON.stringify({
+          client_id:        Number(header.client_id),
+          invoice_number:   header.invoice_number,
+          invoice_date:     header.invoice_date,
+          service_date:     header.service_date || null,
+          description:      rows[0].description, // fallback for legacy display
+          terms:            header.terms || null,
+          status:           "unpaid",
+          payment_due_days: Number(header.payment_due_days),
+          line_items,
+          // header-level totals (also sent for backwards compat)
+          amount_before_tax: subtotal,
+          cgst_rate: computed[0]?.cgst_rate ?? 9,
+          sgst_rate: computed[0]?.sgst_rate ?? 9,
+          cgst_amount: totalCgst,
+          sgst_amount: totalSgst,
+          total_amount: grandTotal,
+        }),
       })
 
-      console.log("[v0] Invoice created successfully:", result.id)
       router.push(`/dashboard/invoices/${result.id}`)
     } catch (err) {
-      console.error("[v0] Error creating invoice:", err)
       setError(err instanceof Error ? err.message : "Failed to create invoice")
     } finally {
       setIsLoading(false)
@@ -92,188 +146,261 @@ export function InvoiceForm({ clients, profile }: InvoiceFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit}>
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Invoice Details</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="client_id">Client *</Label>
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {/* ── Header ──────────────────────────────────────────── */}
+      <Card>
+        <CardHeader><CardTitle>Invoice Details</CardTitle></CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-2">
+          {/* Client */}
+          <div className="space-y-1.5">
+            <Label htmlFor="client">Client *</Label>
+            <Select value={header.client_id} onValueChange={(v) => updateHeader("client_id", v)}>
+              <SelectTrigger id="client">
+                <SelectValue placeholder="Select client" />
+              </SelectTrigger>
+              <SelectContent>
+                {clients.map((c) => (
+                  <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Invoice number */}
+          <div className="space-y-1.5">
+            <Label htmlFor="invoice_number">Invoice Number *</Label>
+            <Input
+              id="invoice_number"
+              value={header.invoice_number}
+              onChange={(e) => updateHeader("invoice_number", e.target.value)}
+              placeholder="INV-001"
+              required
+            />
+          </div>
+
+          {/* Invoice date */}
+          <div className="space-y-1.5">
+            <Label htmlFor="invoice_date">Invoice Date</Label>
+            <Input
+              id="invoice_date"
+              type="date"
+              value={header.invoice_date}
+              onChange={(e) => updateHeader("invoice_date", e.target.value)}
+            />
+          </div>
+
+          {/* Service date */}
+          <div className="space-y-1.5">
+            <Label htmlFor="service_date">Service Date</Label>
+            <Input
+              id="service_date"
+              type="date"
+              value={header.service_date}
+              onChange={(e) => updateHeader("service_date", e.target.value)}
+            />
+          </div>
+
+          {/* Payment due */}
+          <div className="space-y-1.5">
+            <Label htmlFor="payment_due_days">Payment Due (Days)</Label>
+            <Input
+              id="payment_due_days"
+              type="number"
+              min="0"
+              value={header.payment_due_days}
+              onChange={(e) => updateHeader("payment_due_days", e.target.value)}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Line Items Table ─────────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Line Items</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {/* Column headers */}
+          <div className="hidden sm:grid grid-cols-[2fr_0.8fr_0.8fr_1fr_0.8fr_0.8fr_auto] gap-2 text-xs font-medium text-muted-foreground px-1">
+            <span>Description *</span>
+            <span>HSN/SAC</span>
+            <span>Qty</span>
+            <span>Rate (₹) *</span>
+            <span>GST</span>
+            <span className="text-right">Amount (₹)</span>
+            <span />
+          </div>
+
+          {rows.map((row, i) => {
+            const c = computeRow(row)
+            const lineTotal = c.amount + c.cgst_amount + c.sgst_amount
+            return (
+              <div
+                key={i}
+                className="grid grid-cols-1 sm:grid-cols-[2fr_0.8fr_0.8fr_1fr_0.8fr_0.8fr_auto] gap-2 items-start border rounded-lg p-3 sm:p-2 sm:border-0 sm:rounded-none sm:px-1"
+              >
+                {/* Description */}
+                <div>
+                  <Label className="sm:hidden text-xs mb-1 block">Description *</Label>
+                  <Textarea
+                    value={row.description}
+                    onChange={(e) => updateRow(i, "description", e.target.value)}
+                    placeholder="Service description"
+                    className="min-h-[60px] text-sm resize-y"
+                    required
+                  />
+                </div>
+
+                {/* HSN */}
+                <div>
+                  <Label className="sm:hidden text-xs mb-1 block">HSN/SAC</Label>
+                  <Input
+                    value={row.hsn_code}
+                    onChange={(e) => updateRow(i, "hsn_code", e.target.value)}
+                    placeholder="998314"
+                    className="text-sm"
+                  />
+                </div>
+
+                {/* Qty */}
+                <div>
+                  <Label className="sm:hidden text-xs mb-1 block">Qty</Label>
+                  <Input
+                    type="number"
+                    min="0.001"
+                    step="0.001"
+                    value={row.quantity}
+                    onChange={(e) => updateRow(i, "quantity", e.target.value)}
+                    className="text-sm"
+                  />
+                </div>
+
+                {/* Rate */}
+                <div>
+                  <Label className="sm:hidden text-xs mb-1 block">Rate (₹) *</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={row.rate}
+                    onChange={(e) => updateRow(i, "rate", e.target.value)}
+                    placeholder="0.00"
+                    className="text-sm"
+                    required
+                  />
+                </div>
+
+                {/* GST */}
+                <div>
+                  <Label className="sm:hidden text-xs mb-1 block">GST</Label>
                   <Select
-                    value={formData.client_id}
-                    onValueChange={(value) => setFormData({ ...formData, client_id: value })}
+                    value={String(row.gst_combined)}
+                    onValueChange={(v) => updateRow(i, "gst_combined", Number(v))}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a client" />
+                    <SelectTrigger className="text-sm">
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {clients.map((client) => (
-                        <SelectItem key={client.id} value={client.id}>
-                          {client.name}
+                      {GST_OPTIONS.map((o) => (
+                        <SelectItem key={o.combined} value={String(o.combined)}>
+                          {o.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="invoice_number">Invoice Number *</Label>
-                  <Input
-                    id="invoice_number"
-                    required
-                    value={formData.invoice_number}
-                    onChange={(e) => setFormData({ ...formData, invoice_number: e.target.value })}
-                    placeholder="INV-2025-001"
-                  />
+                {/* Line total */}
+                <div className="flex items-center justify-end">
+                  <span className="text-sm font-medium tabular-nums">
+                    {fmt(lineTotal)}
+                  </span>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="invoice_date">Invoice Date *</Label>
-                  <Input
-                    id="invoice_date"
-                    type="date"
-                    required
-                    value={formData.invoice_date}
-                    onChange={(e) => setFormData({ ...formData, invoice_date: e.target.value })}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="service_date">Service Date</Label>
-                  <Input
-                    id="service_date"
-                    type="date"
-                    value={formData.service_date}
-                    onChange={(e) => setFormData({ ...formData, service_date: e.target.value })}
-                  />
+                {/* Remove */}
+                <div className="flex items-center justify-end">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                    onClick={() => removeRow(i)}
+                    disabled={rows.length === 1}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
+            )
+          })}
 
-              <div className="space-y-2">
-                <Label htmlFor="description">Description *</Label>
-                <Textarea
-                  id="description"
-                  required
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Payment for services rendered..."
-                  rows={3}
-                />
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="hsn_code">HSN Code</Label>
-                  <Input
-                    id="hsn_code"
-                    value={formData.hsn_code}
-                    onChange={(e) => setFormData({ ...formData, hsn_code: e.target.value })}
-                    placeholder="998314"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="amount_before_tax">Amount Before Tax *</Label>
-                  <Input
-                    id="amount_before_tax"
-                    type="number"
-                    step="0.01"
-                    required
-                    value={formData.amount_before_tax}
-                    onChange={(e) => setFormData({ ...formData, amount_before_tax: e.target.value })}
-                    placeholder="0.00"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="cgst_rate">CGST Rate (%)</Label>
-                  <Input
-                    id="cgst_rate"
-                    type="number"
-                    step="0.01"
-                    value={formData.cgst_rate}
-                    onChange={(e) => setFormData({ ...formData, cgst_rate: e.target.value })}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="sgst_rate">SGST Rate (%)</Label>
-                  <Input
-                    id="sgst_rate"
-                    type="number"
-                    step="0.01"
-                    value={formData.sgst_rate}
-                    onChange={(e) => setFormData({ ...formData, sgst_rate: e.target.value })}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="payment_due_days">Payment Due (Days)</Label>
-                  <Input
-                    id="payment_due_days"
-                    type="number"
-                    value={formData.payment_due_days}
-                    onChange={(e) => setFormData({ ...formData, payment_due_days: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="terms">Terms & Conditions</Label>
-                <Textarea
-                  id="terms"
-                  value={formData.terms}
-                  onChange={(e) => setFormData({ ...formData, terms: e.target.value })}
-                  rows={4}
-                />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Summary</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Amount Before Tax</span>
-                <span className="font-medium">₹{Number(formData.amount_before_tax || 0).toLocaleString("en-IN")}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">CGST ({formData.cgst_rate}%)</span>
-                <span className="font-medium">₹{cgstAmount.toLocaleString("en-IN")}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">SGST ({formData.sgst_rate}%)</span>
-                <span className="font-medium">₹{sgstAmount.toLocaleString("en-IN")}</span>
-              </div>
-              <div className="border-t pt-4">
-                <div className="flex justify-between">
-                  <span className="font-semibold">Total Amount</span>
-                  <span className="text-2xl font-bold">₹{totalAmount.toLocaleString("en-IN")}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {error && (
-            <Card className="border-destructive">
-              <CardContent className="pt-6">
-                <p className="text-sm text-destructive">{error}</p>
-              </CardContent>
-            </Card>
-          )}
-
-          <Button type="submit" className="w-full" size="lg" disabled={isLoading || !formData.client_id}>
-            {isLoading ? "Creating..." : "Create Invoice"}
+          <Button type="button" variant="outline" size="sm" onClick={addRow} className="mt-1">
+            <Plus className="h-4 w-4 mr-1.5" />
+            Add Line Item
           </Button>
-        </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Totals + Terms ───────────────────────────────────── */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Terms */}
+        <Card>
+          <CardHeader><CardTitle>Terms &amp; Conditions</CardTitle></CardHeader>
+          <CardContent>
+            <Textarea
+              value={header.terms}
+              onChange={(e) => updateHeader("terms", e.target.value)}
+              className="min-h-[120px] resize-y text-sm"
+              placeholder="Payment terms…"
+            />
+          </CardContent>
+        </Card>
+
+        {/* Summary */}
+        <Card>
+          <CardHeader><CardTitle>Summary</CardTitle></CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Subtotal</span>
+              <span className="font-medium tabular-nums">₹{fmt(subtotal)}</span>
+            </div>
+            {/* Per-row GST breakdown if rates differ */}
+            {[...new Set(rows.map((r) => r.gst_combined))].map((rate) => {
+              const gst = GST_OPTIONS.find((o) => o.combined === rate)!
+              const rowsAtRate = computed.filter((_, i) => rows[i].gst_combined === rate)
+              const cgstHere = rowsAtRate.reduce((s, r) => s + r.cgst_amount, 0)
+              const sgstHere = rowsAtRate.reduce((s, r) => s + r.sgst_amount, 0)
+              if (cgstHere === 0 && sgstHere === 0) return null
+              return (
+                <div key={rate}>
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>CGST @ {gst.half}%</span>
+                    <span className="tabular-nums">₹{fmt(cgstHere)}</span>
+                  </div>
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>SGST @ {gst.half}%</span>
+                    <span className="tabular-nums">₹{fmt(sgstHere)}</span>
+                  </div>
+                </div>
+              )
+            })}
+            <div className="flex justify-between border-t pt-2 font-bold text-base">
+              <span>Grand Total</span>
+              <span className="tabular-nums">₹{fmt(grandTotal)}</span>
+            </div>
+
+            {error && (
+              <div className="flex items-start gap-2 text-sm text-destructive pt-2">
+                <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <Button type="submit" className="w-full mt-4" disabled={isLoading}>
+              {isLoading ? "Creating…" : "Create Invoice"}
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     </form>
   )
