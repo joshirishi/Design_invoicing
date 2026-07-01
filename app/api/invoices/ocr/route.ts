@@ -1,13 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { generateText } from "ai"
-import { createGoogleGenerativeAI } from "@ai-sdk/google"
+import { createOpenAI } from "@ai-sdk/openai"
 
 // POST /api/invoices/ocr
 // Accepts a multipart form with a "file" field (PNG/JPG/WEBP/PDF).
 // Returns extracted invoice data as JSON for the user to confirm.
 //
-// Requires env: GOOGLE_GENERATIVE_AI_API_KEY
-// (Google Gemini — free tier: 1500 req/day, ~$0.0001/image on paid)
+// Uses Vercel AI Gateway (AI_GATEWAY_API_KEY) → routes to google/gemini-2.0-flash
 
 const PROMPT = `You are an invoice data extractor for Indian tax invoices.
 Extract all invoice fields from this document and return ONLY a valid JSON object — no markdown, no explanation.
@@ -41,17 +40,20 @@ Rules:
 - invoice_date must be YYYY-MM-DD format.`
 
 export async function POST(request: NextRequest) {
-  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY
+  const gatewayKey = process.env.AI_GATEWAY_API_KEY
 
-  if (!apiKey) {
+  if (!gatewayKey) {
     return NextResponse.json(
-      {
-        error: "OCR not configured",
-        detail: "Add GOOGLE_GENERATIVE_AI_API_KEY to your environment variables. Get a free key at aistudio.google.com.",
-      },
+      { error: "OCR not configured", detail: "AI_GATEWAY_API_KEY is missing from environment variables." },
       { status: 503 },
     )
   }
+
+  // Vercel AI Gateway — routes google/gemini-2.0-flash through Vercel's unified endpoint
+  const gateway = createOpenAI({
+    apiKey: gatewayKey,
+    baseURL: "https://ai-gateway.vercel.sh/v1",
+  })
 
   try {
     const formData = await request.formData()
@@ -73,12 +75,13 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
 
-    const google = createGoogleGenerativeAI({ apiKey })
+    // Gateway model ID format: provider/model-name
+    const model = gateway("google/gemini-2.0-flash")
 
     let result: string
 
     if (ext === "pdf") {
-      // For PDFs, extract text first then ask Gemini to structure it
+      // Extract text first, then ask the model to structure it
       const pdfParse = (await import("pdf-parse")).default
       const pdfData = await pdfParse(buffer)
       const text = pdfData.text?.trim()
@@ -91,17 +94,12 @@ export async function POST(request: NextRequest) {
       }
 
       const { text: response } = await generateText({
-        model: google("gemini-2.0-flash"),
-        messages: [
-          {
-            role: "user",
-            content: `${PROMPT}\n\nHere is the invoice text:\n\n${text.slice(0, 8000)}`,
-          },
-        ],
+        model,
+        messages: [{ role: "user", content: `${PROMPT}\n\nHere is the invoice text:\n\n${text.slice(0, 8000)}` }],
       })
       result = response
     } else {
-      // Image — pass directly as base64
+      // Image — pass as base64 via multimodal message
       const base64 = buffer.toString("base64")
       const mimeMap: Record<string, string> = {
         png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp",
@@ -109,16 +107,14 @@ export async function POST(request: NextRequest) {
       const mimeType = mimeMap[ext] ?? "image/jpeg"
 
       const { text: response } = await generateText({
-        model: google("gemini-2.0-flash"),
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "image", image: base64, mimeType },
-              { type: "text", text: PROMPT },
-            ],
-          },
-        ],
+        model,
+        messages: [{
+          role: "user",
+          content: [
+            { type: "image", image: base64, mimeType },
+            { type: "text", text: PROMPT },
+          ],
+        }],
       })
       result = response
     }
