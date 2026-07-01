@@ -29,6 +29,9 @@ export async function GET(request: NextRequest) {
       whereClause = `org_id = ${oid} AND credit > 0 AND reconciled = false`
     }
 
+    // Sanity check rawSql works in this route
+    const _sanityCount = await rawSql(`SELECT COUNT(*) AS cnt FROM bank_transactions WHERE org_id = ${oid}`)
+
     const transactions = await rawSql(`
       SELECT id, transaction_date, description, reference_number,
              debit, credit, balance, reconciled,
@@ -49,8 +52,11 @@ export async function GET(request: NextRequest) {
     `)
 
     return NextResponse.json({
-      _v: "rawSql-v2",
+      _v: "rawSql-v3",
       _at: new Date().toISOString(),
+      _orgId: orgId,
+      _oid: String(Math.floor(orgId)),
+      _sanityCount,
       transactions,
       counts: counts[0] ?? { credits: 0, debits: 0, reconciled: 0 },
       offset,
