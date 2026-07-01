@@ -77,9 +77,8 @@ export async function POST(request: NextRequest) {
       `(${orgId}, ${esc(r.transaction_date)}, ${esc(r.description)}, ${esc(r.reference_number ?? null)}, ${num(r.debit)}, ${num(r.credit)}, ${num(r.balance)}, false, ${esc(r.category)}, ${esc(r.source)}, ${esc(batchId)}, ${esc(ext)})`
     ).join(",\n")
 
-    // Single INSERT — ON CONFLICT DO NOTHING deduplicates against idx_bank_txn_dedup.
-    // RETURNING id gives us only the actually inserted rows.
-    const inserted = await rawSql(`
+    // Single bulk INSERT — ON CONFLICT DO NOTHING deduplicates against idx_bank_txn_dedup.
+    await rawSql(`
       INSERT INTO bank_transactions (
         org_id, transaction_date, description, reference_number,
         debit, credit, balance, reconciled,
@@ -88,10 +87,13 @@ export async function POST(request: NextRequest) {
       VALUES ${valuesList}
       ON CONFLICT (org_id, transaction_date, description, COALESCE(debit, 0), COALESCE(credit, 0))
         DO NOTHING
-      RETURNING id
     `)
 
-    const insertedCount = inserted.length
+    // exec_sql doesn't return RETURNING rows for DML, so count separately
+    const countResult = await sql`
+      SELECT COUNT(*) AS cnt FROM bank_transactions WHERE upload_batch_id = ${batchId}
+    `
+    const insertedCount = Number(countResult[0]?.cnt ?? 0)
     const skippedCount = rows.length - insertedCount
 
     return NextResponse.json({
