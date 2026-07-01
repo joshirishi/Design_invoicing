@@ -1,41 +1,85 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Check, X, Sparkles, Loader2, ArrowUpCircle, ArrowDownCircle } from "lucide-react"
-import type { BankTransaction, Payment } from "@/lib/types"
+import { Check, X, Sparkles, Loader2, ArrowUpCircle, ArrowDownCircle, RefreshCw } from "lucide-react"
 import { fetchFromAPI } from "@/lib/fetch"
 import { useRouter } from "next/navigation"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CategoryBadge } from "@/components/category-badge"
 
-interface ReconciliationViewProps {
-  transactions: (BankTransaction & { payment?: Payment & { invoice?: { invoice_number: string } } })[]
-  payments: (Payment & { invoice?: { invoice_number: string } })[]
+interface BankTxn {
+  id: string
+  transaction_date: string
+  description: string
+  reference_number: string | null
+  debit: number | null
+  credit: number | null
+  balance: number | null
+  reconciled: boolean
+  category: string | null
+  category_source: string | null
+  payment_id: string | null
+  payment_amount: number | null
+  matched_invoice: string | null
 }
 
-// Suggest a payment match if credit amount is within ±5% of payment amount
-function getSuggestedMatch(creditAmount: number, payments: (Payment & { invoice?: { invoice_number: string } })[]) {
-  const tolerance = 0.05
-  return payments.find((p) => {
-    const diff = Math.abs(Number(p.amount) - creditAmount) / creditAmount
-    return diff <= tolerance
-  })
+interface Payment {
+  id: string
+  amount: number
+  payment_date: string
+  invoice_number: string | null
 }
+
+interface Counts { credits: string; debits: string; reconciled: string }
 
 type TabKey = "credits" | "debits" | "reconciled"
 
-export function ReconciliationView({ transactions, payments }: ReconciliationViewProps) {
+const PAGE = 50
+
+export function ReconciliationView({ payments }: { payments: Payment[] }) {
   const router = useRouter()
+  const [activeTab, setActiveTab] = useState<TabKey>("credits")
+  const [transactions, setTransactions] = useState<BankTxn[]>([])
+  const [counts, setCounts] = useState<Counts>({ credits: "…", debits: "…", reconciled: "…" })
+  const [offset, setOffset] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const [selectedPayments, setSelectedPayments] = useState<Record<string, string>>({})
   const [isReconciling, setIsReconciling] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<TabKey>("credits")
 
-  const unreconciledCredits = transactions.filter((t) => !t.reconciled && t.credit && Number(t.credit) > 0)
-  const unreconciledDebits  = transactions.filter((t) => !t.reconciled && t.debit  && Number(t.debit)  > 0)
-  const reconciledTxns      = transactions.filter((t) => t.reconciled)
+  const fetchPage = useCallback(async (tab: TabKey, pageOffset: number, append = false) => {
+    append ? setLoadingMore(true) : setLoading(true)
+    setFetchError(null)
+    try {
+      const res = await fetch(`/api/bank-transactions?type=${tab}&offset=${pageOffset}&limit=${PAGE}`)
+      const json = await res.json()
+      if (!res.ok) { setFetchError(json.error ?? "Failed to load transactions"); return }
+      if (!append) {
+        setTransactions(json.transactions ?? [])
+        setCounts(json.counts ?? counts)
+      } else {
+        setTransactions((prev) => [...prev, ...(json.transactions ?? [])])
+      }
+      setHasMore((json.transactions ?? []).length === PAGE)
+      setOffset(pageOffset + PAGE)
+    } catch (err) {
+      setFetchError(err instanceof Error ? err.message : "Failed to load")
+    } finally {
+      setLoading(false)
+      setLoadingMore(false)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    setOffset(0)
+    setTransactions([])
+    fetchPage(activeTab, 0)
+  }, [activeTab, fetchPage])
 
   const handleReconcile = async (transactionId: string, paymentId: string) => {
     setIsReconciling(transactionId)
@@ -44,10 +88,10 @@ export function ReconciliationView({ transactions, payments }: ReconciliationVie
         method: "POST",
         body: JSON.stringify({ transactionId, paymentId }),
       })
-      router.refresh()
+      fetchPage(activeTab, 0)
       setSelectedPayments((prev) => { const s = { ...prev }; delete s[transactionId]; return s })
-    } catch (error) {
-      console.error("Error reconciling:", error)
+    } catch (err) {
+      console.error("Reconcile error:", err)
     } finally {
       setIsReconciling(null)
     }
@@ -60,18 +104,18 @@ export function ReconciliationView({ transactions, payments }: ReconciliationVie
         method: "DELETE",
         body: JSON.stringify({ transactionId, paymentId }),
       })
-      router.refresh()
-    } catch (error) {
-      console.error("Error unreconciling:", error)
+      fetchPage(activeTab, 0)
+    } catch (err) {
+      console.error("Unreconcile error:", err)
     } finally {
       setIsReconciling(null)
     }
   }
 
-  const tabs: { key: TabKey; label: string; count: number }[] = [
-    { key: "credits",    label: "Incoming (Credits)", count: unreconciledCredits.length },
-    { key: "debits",     label: "Outgoing (Debits)",  count: unreconciledDebits.length  },
-    { key: "reconciled", label: "Reconciled",          count: reconciledTxns.length      },
+  const tabs: { key: TabKey; label: string; count: string }[] = [
+    { key: "credits",    label: "Incoming (Credits)", count: counts.credits },
+    { key: "debits",     label: "Outgoing (Debits)",  count: counts.debits  },
+    { key: "reconciled", label: "Reconciled",          count: counts.reconciled },
   ]
 
   return (
@@ -80,15 +124,15 @@ export function ReconciliationView({ transactions, payments }: ReconciliationVie
       <div className="grid grid-cols-3 gap-4">
         <div className="rounded-lg border p-4 space-y-1">
           <p className="text-xs text-muted-foreground">Unreconciled Credits</p>
-          <p className="text-2xl font-bold text-green-600">{unreconciledCredits.length}</p>
+          <p className="text-2xl font-bold text-green-600">{counts.credits}</p>
         </div>
         <div className="rounded-lg border p-4 space-y-1">
           <p className="text-xs text-muted-foreground">Unreconciled Debits</p>
-          <p className="text-2xl font-bold text-amber-600">{unreconciledDebits.length}</p>
+          <p className="text-2xl font-bold text-amber-600">{counts.debits}</p>
         </div>
         <div className="rounded-lg border p-4 space-y-1">
           <p className="text-xs text-muted-foreground">Reconciled</p>
-          <p className="text-2xl font-bold">{reconciledTxns.length}</p>
+          <p className="text-2xl font-bold">{counts.reconciled}</p>
         </div>
       </div>
 
@@ -105,265 +149,176 @@ export function ReconciliationView({ transactions, payments }: ReconciliationVie
             }`}
           >
             {t.label}
-            {t.count > 0 && (
+            {t.count !== "…" && Number(t.count) > 0 && (
               <span className="ml-2 rounded-full bg-muted px-1.5 py-0.5 text-xs">{t.count}</span>
             )}
           </button>
         ))}
       </div>
 
-      {/* ── Credits tab ───────────────────────────────────────────────── */}
-      {activeTab === "credits" && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ArrowUpCircle className="h-5 w-5 text-green-600" />
-              Incoming Money — Match to Invoices
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {unreconciledCredits.length === 0 ? (
-              <p className="text-sm text-muted-foreground">All credit transactions are reconciled.</p>
-            ) : (
-              <div className="space-y-4">
-                {unreconciledCredits.map((transaction) => {
-                  const creditAmt = Number(transaction.credit)
-                  const suggested = getSuggestedMatch(creditAmt, payments)
-                  const selectedId = selectedPayments[transaction.id] || (suggested?.id ?? "")
-                  const isWorking = isReconciling === transaction.id
-                  const confidencePct = suggested
-                    ? Math.round((1 - Math.abs(Number(suggested.amount) - creditAmt) / creditAmt) * 100)
-                    : 0
-
-                  return (
-                    <div key={transaction.id} className="flex items-start gap-4 p-4 border rounded-lg">
-                      <div className="flex-1 space-y-1 min-w-0">
-                        <p className="font-medium truncate">{transaction.description}</p>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm text-muted-foreground">
-                            {new Date(transaction.transaction_date).toLocaleDateString("en-IN")}
-                          </p>
-                          <CategoryBadge
-                            transactionId={transaction.id}
-                            description={transaction.description || ""}
-                            category={transaction.category || "Uncategorized"}
-                            source={transaction.category_source ?? undefined}
-                          />
-                        </div>
-                        {transaction.reference_number && (
-                          <p className="text-xs text-muted-foreground">Ref: {transaction.reference_number}</p>
-                        )}
-                        {suggested && (
-                          <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
-                            <Sparkles className="h-3.5 w-3.5" />
-                            Auto-match suggestion: <strong>{suggested.invoice?.invoice_number || "Payment"}</strong>
-                            <span className="text-muted-foreground">({confidencePct}% match)</span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-lg font-bold text-green-600">
-                          +₹{creditAmt.toLocaleString("en-IN")}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Select
-                          value={selectedId}
-                          onValueChange={(value) =>
-                            setSelectedPayments((prev) => ({ ...prev, [transaction.id]: value }))
-                          }
-                        >
-                          <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="Select payment" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {payments.map((payment) => (
-                              <SelectItem key={payment.id} value={payment.id}>
-                                {payment.invoice?.invoice_number || "Payment"} — ₹
-                                {Number(payment.amount).toLocaleString("en-IN")}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          size="sm"
-                          onClick={() => handleReconcile(transaction.id, selectedId || selectedPayments[transaction.id])}
-                          disabled={!(selectedId || selectedPayments[transaction.id]) || isWorking}
-                        >
-                          {isWorking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
-                          {!isWorking && "Match"}
-                        </Button>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      {/* Error */}
+      {fetchError && (
+        <div className="flex items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          <span className="flex-1">{fetchError}</span>
+          <Button size="sm" variant="outline" onClick={() => fetchPage(activeTab, 0)}>
+            <RefreshCw className="h-3.5 w-3.5 mr-1" />Retry
+          </Button>
+        </div>
       )}
 
-      {/* ── Debits tab ────────────────────────────────────────────────── */}
-      {activeTab === "debits" && (
+      {/* Loading skeleton */}
+      {loading && (
+        <div className="space-y-3">
+          {[1, 2, 3].map((n) => (
+            <div key={n} className="h-20 rounded-lg border bg-muted/30 animate-pulse" />
+          ))}
+        </div>
+      )}
+
+      {/* Transaction list */}
+      {!loading && !fetchError && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ArrowDownCircle className="h-5 w-5 text-amber-600" />
-              Outgoing Money — Expenses &amp; Payments
+            <CardTitle className="flex items-center gap-2 text-base">
+              {activeTab === "credits"    && <><ArrowUpCircle   className="h-5 w-5 text-green-600" />Incoming Money — Match to Invoices</>}
+              {activeTab === "debits"     && <><ArrowDownCircle className="h-5 w-5 text-amber-600" />Outgoing Money — Expenses &amp; Payments</>}
+              {activeTab === "reconciled" && <>Reconciled Transactions ({counts.reconciled})</>}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {unreconciledDebits.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No unreconciled debit transactions.</p>
+            {transactions.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4">
+                {activeTab === "credits"    && "No unreconciled credit transactions."}
+                {activeTab === "debits"     && "No unreconciled debit transactions."}
+                {activeTab === "reconciled" && "No reconciled transactions yet."}
+              </p>
             ) : (
               <div className="space-y-3">
-                {unreconciledDebits.map((transaction) => {
-                  const debitAmt = Number(transaction.debit)
-                  const isWorking = isReconciling === transaction.id
-                  const desc = (transaction.description || "").toLowerCase()
-                  const isCCPayment =
-                    desc.includes("infinity") || desc.includes("cc payment") || desc.includes("credit card")
+                {transactions.map((txn) => {
+                  const isCredit = activeTab === "credits" || (txn.credit && Number(txn.credit) > 0)
+                  const amount = isCredit ? Number(txn.credit) : Number(txn.debit)
+                  const isWorking = isReconciling === txn.id
+                  const selectedId = selectedPayments[txn.id] ?? ""
 
                   return (
-                    <div key={transaction.id} className="flex items-start gap-4 p-4 border rounded-lg">
+                    <div key={txn.id} className="flex items-start gap-3 p-4 border rounded-lg">
                       <div className="flex-1 space-y-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium truncate">{transaction.description}</p>
-                          {isCCPayment && (
-                            <Badge variant="outline" className="text-xs shrink-0">CC Payment</Badge>
+                        <p className="font-medium truncate text-sm">{txn.description}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(txn.transaction_date).toLocaleDateString("en-IN")}
+                          </p>
+                          {txn.category && (
+                            <CategoryBadge
+                              transactionId={txn.id}
+                              description={txn.description || ""}
+                              category={txn.category}
+                              source={txn.category_source ?? undefined}
+                            />
+                          )}
+                          {activeTab === "reconciled" && txn.matched_invoice && (
+                            <Badge className="bg-green-500/10 text-green-700 text-xs">
+                              {txn.matched_invoice}
+                            </Badge>
                           )}
                         </div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm text-muted-foreground">
-                            {new Date(transaction.transaction_date).toLocaleDateString("en-IN")}
-                          </p>
-                          <CategoryBadge
-                            transactionId={transaction.id}
-                            description={transaction.description || ""}
-                            category={transaction.category || "Uncategorized"}
-                            source={transaction.category_source ?? undefined}
-                          />
-                        </div>
-                        {transaction.reference_number && (
-                          <p className="text-xs text-muted-foreground">Ref: {transaction.reference_number}</p>
+                        {txn.reference_number && (
+                          <p className="text-xs text-muted-foreground">Ref: {txn.reference_number}</p>
                         )}
                       </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-lg font-bold text-red-600">
-                          −₹{debitAmt.toLocaleString("en-IN")}
-                        </p>
-                      </div>
-                      {/* Debits can still be manually reconciled to a payment record */}
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Select
-                          value={selectedPayments[transaction.id] ?? ""}
-                          onValueChange={(value) =>
-                            setSelectedPayments((prev) => ({ ...prev, [transaction.id]: value }))
-                          }
-                        >
-                          <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="Link payment (opt.)" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {payments.map((payment) => (
-                              <SelectItem key={payment.id} value={payment.id}>
-                                {payment.invoice?.invoice_number || "Payment"} — ₹
-                                {Number(payment.amount).toLocaleString("en-IN")}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          size="sm"
-                          onClick={() =>
-                            handleReconcile(transaction.id, selectedPayments[transaction.id])
-                          }
-                          disabled={!selectedPayments[transaction.id] || isWorking}
-                        >
-                          {isWorking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
-                          {!isWorking && "Link"}
-                        </Button>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
 
-      {/* ── Reconciled tab ───────────────────────────────────────────── */}
-      {activeTab === "reconciled" && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Reconciled Transactions ({reconciledTxns.length})</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {reconciledTxns.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No reconciled transactions yet.</p>
-            ) : (
-              <div className="space-y-3">
-                {reconciledTxns.map((transaction) => {
-                  const isCredit = transaction.credit && Number(transaction.credit) > 0
-                  const amount = isCredit ? Number(transaction.credit) : Number(transaction.debit)
-                  return (
-                    <div key={transaction.id} className="flex items-center gap-4 p-4 border rounded-lg bg-muted/30">
-                      <div className="flex-1 space-y-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium truncate">{transaction.description}</p>
-                          <Badge className="bg-green-500/10 text-green-700 shrink-0">Reconciled</Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          {new Date(transaction.transaction_date).toLocaleDateString("en-IN")}
-                        </p>
-                        {transaction.payment?.invoice?.invoice_number && (
-                          <p className="text-sm text-muted-foreground">
-                            Matched: {transaction.payment.invoice.invoice_number}
-                          </p>
-                        )}
-                      </div>
                       <div className="text-right shrink-0">
-                        <p className={`text-lg font-bold ${isCredit ? "text-green-600" : "text-red-600"}`}>
+                        <p className={`text-base font-bold ${isCredit ? "text-green-600" : "text-red-600"}`}>
                           {isCredit ? "+" : "−"}₹{amount.toLocaleString("en-IN")}
                         </p>
                       </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleUnreconcile(transaction.id, transaction.payment_id)}
-                        disabled={isReconciling === transaction.id}
-                      >
-                        <X className="h-4 w-4 mr-1" />
-                        Unmatch
-                      </Button>
+
+                      {/* Match controls — credits & debits only */}
+                      {activeTab !== "reconciled" && (
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Select
+                            value={selectedId}
+                            onValueChange={(v) => setSelectedPayments((p) => ({ ...p, [txn.id]: v }))}
+                          >
+                            <SelectTrigger className="w-[160px] h-8 text-xs">
+                              <SelectValue placeholder="Link payment" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {payments.map((p) => (
+                                <SelectItem key={p.id} value={p.id}>
+                                  {p.invoice_number ?? "Payment"} — ₹{Number(p.amount).toLocaleString("en-IN")}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            size="sm"
+                            className="h-8"
+                            onClick={() => handleReconcile(txn.id, selectedId)}
+                            disabled={!selectedId || isWorking}
+                          >
+                            {isWorking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 mr-1" />}
+                            {!isWorking && "Match"}
+                          </Button>
+                        </div>
+                      )}
+
+                      {/* Unmatch — reconciled tab only */}
+                      {activeTab === "reconciled" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 shrink-0"
+                          onClick={() => handleUnreconcile(txn.id, txn.payment_id)}
+                          disabled={isWorking}
+                        >
+                          {isWorking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5 mr-1" />}
+                          {!isWorking && "Unmatch"}
+                        </Button>
+                      )}
                     </div>
                   )
                 })}
+              </div>
+            )}
+
+            {/* Load More */}
+            {hasMore && (
+              <div className="mt-4 text-center">
+                <Button
+                  variant="outline"
+                  onClick={() => fetchPage(activeTab, offset, true)}
+                  disabled={loadingMore}
+                >
+                  {loadingMore ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Loading…</> : "Load More"}
+                </Button>
               </div>
             )}
           </CardContent>
         </Card>
       )}
 
-      {/* Unmatched Payments */}
-      {payments.length > 0 && (
+      {/* Unmatched payments sidebar */}
+      {payments.length > 0 && activeTab === "credits" && !loading && (
         <Card>
           <CardHeader>
-            <CardTitle>Unmatched Invoice Payments ({payments.length})</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Sparkles className="h-4 w-4 text-amber-500" />
+              Unmatched Invoice Payments ({payments.length})
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {payments.map((payment) => (
-                <div key={payment.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="space-y-1">
-                    <p className="font-medium">{payment.invoice?.invoice_number || "Payment"}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {new Date(payment.payment_date).toLocaleDateString("en-IN")}
+            <div className="space-y-2">
+              {payments.map((p) => (
+                <div key={p.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div>
+                    <p className="text-sm font-medium">{p.invoice_number ?? "Payment"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(p.payment_date).toLocaleDateString("en-IN")}
                     </p>
                   </div>
-                  <p className="font-bold text-green-600">
-                    ₹{Number(payment.amount).toLocaleString("en-IN")}
+                  <p className="font-bold text-green-600 text-sm">
+                    ₹{Number(p.amount).toLocaleString("en-IN")}
                   </p>
                 </div>
               ))}
