@@ -1,17 +1,28 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { sql } from "@/lib/db"
+import { rawSql } from "@/lib/db"
 import { getCurrentOrgId } from "@/lib/get-org"
 import { categorize, fetchRules } from "@/lib/categorize"
 import { parseCsvBank } from "@/lib/parsers/csv-bank"
 import { parseXlsBank } from "@/lib/parsers/xls-bank"
 import { parsePdfBank } from "@/lib/parsers/pdf-bank"
-import { runAutoReconcile } from "@/lib/reconcile-engine"
 
-export const maxDuration = 60 // Vercel function timeout for large files
+export const maxDuration = 60
+
+// Escape a string value for safe SQL interpolation
+function esc(v: string | null | undefined): string {
+  if (v === null || v === undefined) return "NULL"
+  return `'${String(v).replace(/'/g, "''")}'`
+}
+
+// Format a number or null for SQL
+function num(v: number | null | undefined): string {
+  if (v === null || v === undefined || !Number.isFinite(v)) return "NULL"
+  return String(v)
+}
 
 // POST /api/bank-statements/upload
-// Accepts multipart/form-data with a "file" field (CSV, XLS, XLSX, or PDF)
-// Returns { inserted, skipped, batchId }
+// Accepts multipart/form-data with a "file" field (CSV, XLS, XLSX, or PDF).
+// Does a single bulk INSERT with dedup via ON CONFLICT DO NOTHING — no per-row DB calls.
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
@@ -31,11 +42,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Read file into buffer
+    // Parse file
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
 
-    // Parse based on format
     let rows
     if (ext === "csv") {
       rows = parseCsvBank(buffer.toString("utf-8"))
@@ -56,50 +66,41 @@ export async function POST(request: NextRequest) {
     const rules = await fetchRules(orgId)
     const batchId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
-    let inserted = 0
-    let skipped = 0
+    // Categorize all rows in memory — no DB calls needed per row
+    const categorized = rows.map((row) => {
+      const { category, source } = categorize(row.description, rules)
+      return { ...row, category, source }
+    })
 
-    for (const txn of rows) {
-      // Skip duplicates: same org + date + description + amount combination
-      const exists = await sql`
-        SELECT id FROM bank_transactions
-        WHERE org_id = ${orgId}
-          AND transaction_date = ${txn.transaction_date}
-          AND description = ${txn.description}
-          AND COALESCE(debit, 0) = COALESCE(${txn.debit}, 0)
-          AND COALESCE(credit, 0) = COALESCE(${txn.credit}, 0)
-        LIMIT 1
-      `
-      if (exists.length > 0) { skipped++; continue }
+    // Build a single VALUES list for bulk INSERT
+    const valuesList = categorized.map((r) =>
+      `(${orgId}, ${esc(r.transaction_date)}, ${esc(r.description)}, ${esc(r.reference_number ?? null)}, ${num(r.debit)}, ${num(r.credit)}, ${num(r.balance)}, false, ${esc(r.category)}, ${esc(r.source)}, ${esc(batchId)}, ${esc(ext)})`
+    ).join(",\n")
 
-      const { category, source } = categorize(txn.description, rules)
+    // Single INSERT — ON CONFLICT DO NOTHING deduplicates against idx_bank_txn_dedup.
+    // RETURNING id gives us only the actually inserted rows.
+    const inserted = await rawSql(`
+      INSERT INTO bank_transactions (
+        org_id, transaction_date, description, reference_number,
+        debit, credit, balance, reconciled,
+        category, category_source, upload_batch_id, source_format
+      )
+      VALUES ${valuesList}
+      ON CONFLICT (org_id, transaction_date, description, COALESCE(debit, 0), COALESCE(credit, 0))
+        DO NOTHING
+      RETURNING id
+    `)
 
-      await sql`
-        INSERT INTO bank_transactions (
-          org_id, transaction_date, description, reference_number,
-          debit, credit, balance, reconciled,
-          category, category_source, upload_batch_id, source_format
-        ) VALUES (
-          ${orgId}, ${txn.transaction_date}, ${txn.description},
-          ${txn.reference_number ?? null},
-          ${txn.debit ?? null}, ${txn.credit ?? null},
-          ${txn.balance ?? null}, false,
-          ${category}, ${source}, ${batchId}, ${ext}
-        )
-      `
-      inserted++
-    }
-
-    // Run auto-reconciliation on newly inserted batch
-    const suggestions = await runAutoReconcile(orgId, batchId)
+    const insertedCount = inserted.length
+    const skippedCount = rows.length - insertedCount
 
     return NextResponse.json({
       success: true,
-      inserted,
-      skipped,
+      inserted: insertedCount,
+      skipped: skippedCount,
       total: rows.length,
       batchId,
-      autoMatched: suggestions.matched,
+      autoMatched: 0, // Reconciliation is now a separate step — use the Reconcile button
     })
   } catch (error) {
     console.error("[bank-statements/upload] Error:", error)

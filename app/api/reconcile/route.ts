@@ -1,9 +1,22 @@
 import { sql } from "@/lib/db"
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
+import { runAutoReconcile } from "@/lib/reconcile-engine"
+import { getCurrentOrgId } from "@/lib/get-org"
 
-// Match a bank transaction with a payment
-export async function POST(request: Request) {
+// POST /api/reconcile?batchId=xxx  → auto-reconcile a batch of uploaded transactions
+// POST /api/reconcile               → manually match one transaction to one payment (body: { transactionId, paymentId })
+export async function POST(request: NextRequest) {
   try {
+    const batchId = new URL(request.url).searchParams.get("batchId")
+
+    // Auto-reconcile path — triggered after upload
+    if (batchId) {
+      const orgId = await getCurrentOrgId()
+      const result = await runAutoReconcile(orgId, batchId)
+      return NextResponse.json({ success: true, matched: result.matched })
+    }
+
+    // Manual match path
     const { transactionId, paymentId } = await request.json()
 
     await sql`

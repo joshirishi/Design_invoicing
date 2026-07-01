@@ -63,5 +63,31 @@ export async function sql(strings: TemplateStringsArray, ...values: unknown[]): 
   return Array.isArray(data) ? data : [data]
 }
 
+// rawSql — for bulk operations where you need to pass a pre-built SQL string.
+// Use only for trusted, server-side queries (never pass user input directly).
+export async function rawSql(query: string): Promise<Row[]> {
+  if (!SUPABASE_URL || !SERVICE_KEY) {
+    throw new Error("NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set.")
+  }
+
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/exec_sql`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: SERVICE_KEY,
+      Authorization: `Bearer ${SERVICE_KEY}`,
+    },
+    body: JSON.stringify({ query }),
+  })
+
+  if (!res.ok) {
+    const body = await res.text()
+    throw new Error(`DB query failed (${res.status}): ${body}\nQuery: ${query.slice(0, 200)}`)
+  }
+
+  const data = await res.json()
+  return Array.isArray(data) ? data : [data]
+}
+
 // Re-export from the client-safe module so existing imports still work.
 export { fetchFromAPI } from "@/lib/fetch"

@@ -23,9 +23,15 @@ export async function GET() {
       CREATE INDEX IF NOT EXISTS idx_bank_transactions_batch ON bank_transactions(upload_batch_id)
     `
 
+    // Unique index for deduplication — allows fast ON CONFLICT DO NOTHING on bulk insert
+    await sql`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_bank_txn_dedup
+        ON bank_transactions(org_id, transaction_date, description, COALESCE(debit, 0), COALESCE(credit, 0))
+    `
+
     return NextResponse.json({
       success: true,
-      message: "bank-v2 migration applied: category columns added to bank_transactions, import_source added to invoices",
+      message: "bank-v2 migration applied: columns, indexes, and dedup constraint added",
     })
   } catch (error) {
     console.error("[bank-v2 migration] Error:", error)
