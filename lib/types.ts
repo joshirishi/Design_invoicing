@@ -7,6 +7,7 @@ export interface Profile {
   address: string | null
   gstin: string | null
   pan_no: string | null
+  state_code: string | null   // your business state, used to determine IGST vs CGST+SGST
   bank_name: string | null
   account_name: string | null
   account_number: string | null
@@ -26,6 +27,8 @@ export interface Client {
   phone: string | null
   address: string | null
   gstin: string | null
+  state_code: string | null   // 2-digit Indian state code e.g. "27" for Maharashtra
+  pan_no: string | null
   created_at: string
   updated_at: string
 }
@@ -42,9 +45,13 @@ export interface Invoice {
   amount_before_tax: number
   cgst_rate: number
   sgst_rate: number
+  igst_rate: number           // 0 for intra-state, full rate for inter-state
   cgst_amount: number
   sgst_amount: number
+  igst_amount: number
   total_amount: number
+  financial_year: string | null  // e.g. "2025-26" (Apr–Mar)
+  place_of_supply: string | null // 2-digit state code
   terms: string | null
   status: "paid" | "unpaid" | "partially_paid" | "overdue"
   payment_due_days: number
@@ -65,8 +72,10 @@ export interface InvoiceLineItem {
   rate: number
   cgst_rate: number
   sgst_rate: number
+  igst_rate: number
   cgst_amount: number
   sgst_amount: number
+  igst_amount: number
   amount: number        // rate × quantity (before tax)
   sort_order?: number
 }
@@ -82,6 +91,8 @@ export interface Payment {
   reference_number: string | null
   notes: string | null
   reconciled: boolean
+  tds_amount: number          // TDS deducted by client (reduces net receivable)
+  tds_section: string | null  // e.g. "194J", "194C"
   created_at: string
   updated_at: string
   invoice?: Partial<Invoice>
@@ -101,15 +112,18 @@ export interface BankTransaction {
   payment_id: string | null
   category: string | null
   category_source: string | null
+  ledger_id: number | null        // FK to chart_of_accounts
   upload_batch_id: string | null
   source_format: string | null
   created_at: string
   payment?: Partial<Payment>
+  ledger?: Partial<ChartOfAccount>
 }
 
 export interface Purchase {
   id: string
   org_id: number
+  vendor_id: number | null       // FK to vendors master
   vendor_name: string
   vendor_gstin: string | null
   invoice_date: string
@@ -120,8 +134,10 @@ export interface Purchase {
   sgst: number
   igst: number
   total_with_tax: number
+  financial_year: string | null
   created_at: string
   updated_at: string
+  vendor?: Partial<Vendor>
 }
 
 export interface Organization {
@@ -130,6 +146,34 @@ export interface Organization {
   gstin: string | null
   plan: string
   created_at: string
+}
+
+export interface ChartOfAccount {
+  id: number
+  org_id: number | null       // null = system default visible to all orgs
+  name: string
+  type: "Asset" | "Liability" | "Income" | "Expense" | "Equity"
+  tally_group: string         // Tally primary group — used in XML export
+  tally_parent: string | null // Tally parent group (for nested groups)
+  is_system: boolean          // system defaults cannot be deleted
+  is_active: boolean
+  parent_id: number | null
+  created_at: string
+  updated_at: string
+}
+
+export interface Vendor {
+  id: number
+  org_id: number
+  name: string
+  gstin: string | null
+  pan_no: string | null
+  state_code: string | null
+  address: string | null
+  email: string | null
+  phone: string | null
+  created_at: string
+  updated_at: string
 }
 
 export interface OrgMember {

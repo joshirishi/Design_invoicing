@@ -8,21 +8,24 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Plus, Trash2, Loader2, X, Receipt } from "lucide-react"
 import { fetchFromAPI } from "@/lib/fetch"
-import type { Purchase } from "@/lib/types"
+import type { Purchase, Vendor } from "@/lib/types"
 
 interface PurchasesViewProps {
   purchases: Purchase[]
+  vendors?: Pick<Vendor, "id" | "name" | "gstin" | "state_code">[]
 }
 
 const EMPTY_FORM = {
+  vendor_id: "",
   vendor_name: "", vendor_gstin: "", invoice_date: new Date().toISOString().split("T")[0],
   invoice_number: "", description: "", amount: "",
   cgst: "", sgst: "", igst: "",
 }
 
-export function PurchasesView({ purchases: initial }: PurchasesViewProps) {
+export function PurchasesView({ purchases: initial, vendors = [] }: PurchasesViewProps) {
   const router = useRouter()
   const [purchases, setPurchases] = useState(initial)
   const [showForm, setShowForm] = useState(false)
@@ -32,6 +35,16 @@ export function PurchasesView({ purchases: initial }: PurchasesViewProps) {
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((p) => ({ ...p, [k]: e.target.value }))
+
+  // When a vendor is picked from the dropdown, auto-fill name + GSTIN
+  const handleVendorSelect = (vendorId: string) => {
+    if (vendorId === "__manual__") {
+      setForm((f) => ({ ...f, vendor_id: "", vendor_name: "", vendor_gstin: "" }))
+      return
+    }
+    const v = vendors.find((x) => String(x.id) === vendorId)
+    if (v) setForm((f) => ({ ...f, vendor_id: vendorId, vendor_name: v.name, vendor_gstin: v.gstin || "" }))
+  }
 
   const totalGstPaid = purchases.reduce((s, p) => s + Number(p.cgst) + Number(p.sgst) + Number(p.igst), 0)
   const totalExpense = purchases.reduce((s, p) => s + Number(p.amount), 0)
@@ -44,6 +57,7 @@ export function PurchasesView({ purchases: initial }: PurchasesViewProps) {
         method: "POST",
         body: JSON.stringify({
           ...form,
+          vendor_id: form.vendor_id ? Number(form.vendor_id) : null,
           amount: Number(form.amount),
           cgst: Number(form.cgst) || 0,
           sgst: Number(form.sgst) || 0,
@@ -112,6 +126,23 @@ export function PurchasesView({ purchases: initial }: PurchasesViewProps) {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
+              {/* Vendor picker — choose from master or type manually */}
+              {vendors.length > 0 && (
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label>Vendor (from master)</Label>
+                  <Select value={form.vendor_id || "__manual__"} onValueChange={handleVendorSelect}>
+                    <SelectTrigger><SelectValue placeholder="Select vendor or type manually below" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__manual__">— Type manually —</SelectItem>
+                      {vendors.map((v) => (
+                        <SelectItem key={v.id} value={String(v.id)}>
+                          {v.name}{v.gstin ? ` · ${v.gstin}` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="space-y-1.5">
                 <Label>Vendor Name *</Label>
                 <Input value={form.vendor_name} onChange={set("vendor_name")} placeholder="Vendor Company Pvt Ltd" required />

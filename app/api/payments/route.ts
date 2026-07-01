@@ -38,12 +38,14 @@ export async function POST(request: NextRequest) {
     const result = await sql`
       INSERT INTO payments (
         org_id, invoice_id, client_id, amount, payment_date,
-        payment_method, reference_number, notes, reconciled
+        payment_method, reference_number, notes, reconciled,
+        tds_amount, tds_section
       )
       VALUES (
         ${orgId}, ${data.invoice_id}, ${data.client_id || null},
         ${data.amount}, ${data.payment_date}, ${data.payment_method || null},
-        ${data.reference_number || null}, ${data.notes || null}, false
+        ${data.reference_number || null}, ${data.notes || null}, false,
+        ${Number(data.tds_amount) || 0}, ${data.tds_section || null}
       )
       RETURNING *
     `

@@ -1,12 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { generateText } from "ai"
-import { createOpenAI } from "@ai-sdk/openai"
+import { createGateway } from "@ai-sdk/gateway"
 
 // POST /api/invoices/ocr
 // Accepts a multipart form with a "file" field (PNG/JPG/WEBP/PDF).
 // Returns extracted invoice data as JSON for the user to confirm.
 //
-// Uses Vercel AI Gateway (AI_GATEWAY_API_KEY) → routes to google/gemini-2.0-flash
+// Uses @ai-sdk/gateway → google/gemini-2.5-flash
+// AI SDK v7: content parts use { type: "image", image, mediaType } or { type: "file", data, mediaType }
 
 const PROMPT = `You are an invoice data extractor for Indian tax invoices.
 Extract all invoice fields from this document and return ONLY a valid JSON object — no markdown, no explanation.
@@ -44,16 +45,13 @@ export async function POST(request: NextRequest) {
 
   if (!gatewayKey) {
     return NextResponse.json(
-      { error: "OCR not configured", detail: "AI_GATEWAY_API_KEY is missing from environment variables." },
+      { error: "OCR not configured", detail: "AI_GATEWAY_API_KEY is missing." },
       { status: 503 },
     )
   }
 
-  // Vercel AI Gateway — routes google/gemini-2.0-flash through Vercel's unified endpoint
-  const gateway = createOpenAI({
-    apiKey: gatewayKey,
-    baseURL: "https://ai-gateway.vercel.sh/v1",
-  })
+  const gateway = createGateway({ apiKey: gatewayKey })
+  const model = gateway("google/gemini-2.5-flash")
 
   try {
     const formData = await request.formData()
@@ -72,63 +70,46 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
+    const buffer = Buffer.from(await file.arrayBuffer())
 
-    // Gateway model ID format: provider/model-name
-    const model = gateway("google/gemini-2.0-flash")
-
-    let result: string
-
-    if (ext === "pdf") {
-      // Extract text first, then ask the model to structure it
-      // Import internal module to bypass pdf-parse v1's test runner (ENOENT fix)
-      const pdfParse = (await import("pdf-parse/lib/pdf-parse.js")).default
-      const pdfData = await pdfParse(buffer)
-      const text = pdfData.text?.trim()
-
-      if (!text) {
-        return NextResponse.json(
-          { error: "Could not extract text from PDF. Is it a scanned/image PDF? Try uploading as an image instead." },
-          { status: 422 },
-        )
-      }
-
-      const { text: response } = await generateText({
-        model,
-        messages: [{ role: "user", content: `${PROMPT}\n\nHere is the invoice text:\n\n${text.slice(0, 8000)}` }],
-      })
-      result = response
-    } else {
-      // Image — pass as base64 via multimodal message
-      const base64 = buffer.toString("base64")
-      const mimeMap: Record<string, string> = {
-        png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp",
-      }
-      const mimeType = mimeMap[ext] ?? "image/jpeg"
-
-      const { text: response } = await generateText({
-        model,
-        messages: [{
-          role: "user",
-          content: [
-            { type: "image", image: base64, mimeType },
-            { type: "text", text: PROMPT },
-          ],
-        }],
-      })
-      result = response
+    // AI SDK v7 uses "mediaType" (not "mimeType") in content parts
+    const mediaTypeMap: Record<string, string> = {
+      png: "image/png",
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      webp: "image/webp",
+      pdf: "application/pdf",
     }
+    const mediaType = mediaTypeMap[ext] ?? "image/jpeg"
 
-    // Strip markdown code fences if Gemini wraps the JSON
-    const cleaned = result.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim()
+    // Build the file content part (AI SDK v7 schema):
+    //   - Images: { type: "image", image: Buffer, mediaType }
+    //   - PDFs:   { type: "file", data: Buffer, mediaType }
+    // Gemini 2.5 Flash reads PDFs natively — no pdf-parse needed.
+    const filePart = ext === "pdf"
+      ? { type: "file" as const, data: buffer, mediaType }
+      : { type: "image" as const, image: buffer, mediaType }
+
+    const { text: response } = await generateText({
+      model,
+      messages: [{
+        role: "user",
+        content: [
+          filePart,
+          { type: "text", text: PROMPT },
+        ],
+      }],
+    })
+
+    // Strip markdown code fences if the model wraps the JSON
+    const cleaned = response.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim()
 
     let parsed: Record<string, unknown>
     try {
       parsed = JSON.parse(cleaned)
     } catch {
       return NextResponse.json(
-        { error: "AI returned unexpected output. Try a clearer image.", raw: result.slice(0, 500) },
+        { error: "AI returned unexpected output. Try a clearer image.", raw: response.slice(0, 500) },
         { status: 422 },
       )
     }
