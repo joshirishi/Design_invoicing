@@ -1,4 +1,4 @@
-import { sql } from "@/lib/db"
+import { sql, rawSql } from "@/lib/db"
 import { type NextRequest, NextResponse } from "next/server"
 import { getCurrentOrgId } from "@/lib/get-org"
 import { categorize, fetchRules } from "@/lib/categorize"
@@ -10,54 +10,43 @@ export async function GET(request: NextRequest) {
   try {
     const orgId = await getCurrentOrgId()
     const { searchParams } = new URL(request.url)
-    const offset = parseInt(searchParams.get("offset") ?? "0", 10)
-    const limit  = parseInt(searchParams.get("limit")  ?? "50", 10)
+    const offset = Math.max(0, parseInt(searchParams.get("offset") ?? "0", 10))
+    const limit  = Math.min(200, Math.max(1, parseInt(searchParams.get("limit") ?? "50", 10)))
     const type   = searchParams.get("type") ?? "credits"
 
-    // Simple flat queries — no JOINs. The sql`` tagged template returns empty
-    // when used with LEFT JOINs via the exec_sql RPC layer; plain selects work reliably.
-    // matched_invoice is loaded separately when a row is reconciled.
-    let transactions
+    // Use rawSql with safe numeric literals — avoids tagged-template interpolation quirks
+    const num = (n: number) => String(Math.floor(n))
+    const oid = num(orgId)
+    const lim = num(limit)
+    const off = num(offset)
+
+    let whereClause: string
     if (type === "debits") {
-      transactions = await sql`
-        SELECT id, transaction_date, description, reference_number,
-               debit, credit, balance, reconciled,
-               category, category_source, payment_id
-        FROM bank_transactions
-        WHERE org_id = ${orgId} AND debit > 0 AND reconciled = false
-        ORDER BY transaction_date DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `
+      whereClause = `org_id = ${oid} AND debit > 0 AND reconciled = false`
     } else if (type === "reconciled") {
-      transactions = await sql`
-        SELECT id, transaction_date, description, reference_number,
-               debit, credit, balance, reconciled,
-               category, category_source, payment_id
-        FROM bank_transactions
-        WHERE org_id = ${orgId} AND reconciled = true
-        ORDER BY transaction_date DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `
+      whereClause = `org_id = ${oid} AND reconciled = true`
     } else {
-      transactions = await sql`
-        SELECT id, transaction_date, description, reference_number,
-               debit, credit, balance, reconciled,
-               category, category_source, payment_id
-        FROM bank_transactions
-        WHERE org_id = ${orgId} AND credit > 0 AND reconciled = false
-        ORDER BY transaction_date DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `
+      whereClause = `org_id = ${oid} AND credit > 0 AND reconciled = false`
     }
 
-    const counts = await sql`
+    const transactions = await rawSql(`
+      SELECT id, transaction_date, description, reference_number,
+             debit, credit, balance, reconciled,
+             category, category_source, payment_id
+      FROM bank_transactions
+      WHERE ${whereClause}
+      ORDER BY transaction_date DESC
+      LIMIT ${lim} OFFSET ${off}
+    `)
+
+    const counts = await rawSql(`
       SELECT
         COUNT(*) FILTER (WHERE credit > 0 AND reconciled = false) AS credits,
         COUNT(*) FILTER (WHERE debit  > 0 AND reconciled = false) AS debits,
         COUNT(*) FILTER (WHERE reconciled = true)                 AS reconciled
       FROM bank_transactions
-      WHERE org_id = ${orgId}
-    `
+      WHERE org_id = ${oid}
+    `)
 
     return NextResponse.json({
       transactions,
@@ -79,7 +68,6 @@ export async function POST(request: NextRequest) {
     const orgId = await getCurrentOrgId()
     const { transactions } = await request.json()
 
-    // Load rules once for the whole batch
     const rules = await fetchRules(orgId)
 
     for (const txn of transactions) {
