@@ -4,6 +4,7 @@ import { GSTReportView } from "@/components/gst-report-view"
 import { GSTOptInBanner } from "@/components/gst-opt-in-banner"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { sql } from "@/lib/db"
+import { getCurrentOrgId } from "@/lib/get-org"
 
 export default async function GSTReportPage() {
   const gstConfigured = await checkGSTConfiguration()
@@ -58,10 +59,11 @@ export default async function GSTReportPage() {
 
 async function checkGSTConfiguration() {
   try {
+    const orgId = await getCurrentOrgId()
     const result = await sql`
       SELECT gst_integrated 
       FROM profiles 
-      WHERE id = 1
+      WHERE org_id = ${orgId}
       LIMIT 1
     `
     return result.length > 0 && result[0].gst_integrated

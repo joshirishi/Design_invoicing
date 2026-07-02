@@ -1,5 +1,7 @@
 // GST API Integration Module
-// This module handles authentication and data sync with the GST portal
+// Real API targets: https://api.gst.gov.in/taxpayerapi/v1.0/
+// Authentication is 2-step: initiate (triggers OTP) → verify OTP → get session token
+// Requires GSP (GST Suvidha Provider) App Key set via GST_APP_KEY env variable
 
 interface GSTCredentials {
   gstin: string
@@ -7,7 +9,19 @@ interface GSTCredentials {
   apiKey: string
 }
 
-interface GSTAuthResponse {
+export interface GSTAuthResponse {
+  success: boolean
+  token?: string
+  error?: string
+}
+
+export interface GSTInitAuthResponse {
+  success: boolean
+  refId?: string
+  error?: string
+}
+
+export interface GSTVerifyOTPResponse {
   success: boolean
   token?: string
   error?: string
@@ -27,18 +41,120 @@ export class GSTAPIClient {
   private baseURL: string
   private credentials: GSTCredentials | null = null
   private authToken: string | null = null
-  private useMockAPI = false
+  private useMockAPI: boolean
 
-  constructor(useMockAPI = false) {
+  constructor(useMockAPI = true) {
     this.useMockAPI = useMockAPI
-    this.baseURL = process.env.GST_API_BASE_URL || "https://gst-api-sandbox.example.com"
+    this.baseURL = process.env.GST_API_BASE_URL || "https://api.gst.gov.in/taxpayerapi/v1.0"
   }
 
   setCredentials(credentials: GSTCredentials) {
     this.credentials = credentials
   }
 
-  // Step 1: Authenticate with GST portal
+  // ─── Step 1: Initiate authentication — GST portal sends OTP to user's mobile ──
+  async initiateAuth(gstin: string, username: string): Promise<GSTInitAuthResponse> {
+    if (this.useMockAPI) {
+      // Mock: skip OTP, return a fake refId immediately
+      return { success: true, refId: `mock-ref-${Date.now()}` }
+    }
+
+    const appKey = process.env.GST_APP_KEY
+    const clientId = process.env.GST_CLIENT_ID
+
+    if (!appKey || !clientId) {
+      return {
+        success: false,
+        error: "GST_APP_KEY and GST_CLIENT_ID environment variables are required for real GST API access. These are issued by GSTN to registered GST Suvidha Providers (GSPs).",
+      }
+    }
+
+    try {
+      const response = await fetch(`${this.baseURL}/authenticate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          clientid: clientId,
+          "client-secret": appKey,
+          action: "AUTHTOKEN",
+        },
+        body: JSON.stringify({
+          action: "AUTHTOKEN",
+          username,
+          gstin,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok || data.error) {
+        return { success: false, error: data.error?.message || "OTP request failed" }
+      }
+
+      return { success: true, refId: data.data?.ref_id || data.ref_id }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to connect to GST portal",
+      }
+    }
+  }
+
+  // ─── Step 2: Verify OTP — returns session token ───────────────────────────────
+  async verifyOTP(refId: string, otp: string): Promise<GSTVerifyOTPResponse> {
+    if (this.useMockAPI || refId.startsWith("mock-ref-")) {
+      // Mock: any 6-digit OTP passes
+      if (otp.length === 6) {
+        const token = `mock-session-${Date.now()}`
+        this.authToken = token
+        return { success: true, token }
+      }
+      return { success: false, error: "OTP must be 6 digits" }
+    }
+
+    const appKey = process.env.GST_APP_KEY
+    const clientId = process.env.GST_CLIENT_ID
+
+    if (!appKey || !clientId) {
+      return { success: false, error: "GST_APP_KEY and GST_CLIENT_ID are not configured" }
+    }
+
+    try {
+      const response = await fetch(`${this.baseURL}/authenticate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          clientid: clientId,
+          "client-secret": appKey,
+          action: "OTPTOKEN",
+        },
+        body: JSON.stringify({
+          action: "OTPTOKEN",
+          username: this.credentials?.username,
+          app_key: appKey,
+          rek: refId,
+          otp,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok || data.error) {
+        return { success: false, error: data.error?.message || "OTP verification failed" }
+      }
+
+      const token = data.data?.auth_token || data.auth_token
+      this.authToken = token
+      return { success: true, token }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "OTP verification failed",
+      }
+    }
+  }
+
+  // ─── Authenticate with stored session token (for sync operations) ─────────────
   async authenticate(): Promise<GSTAuthResponse> {
     if (!this.credentials) {
       return { success: false, error: "Credentials not set" }
@@ -58,14 +174,16 @@ export class GSTAPIClient {
         return data
       }
 
-      // Real API authentication
-      const response = await this.mockGSTAuth()
-
-      if (response.success && response.token) {
-        this.authToken = response.token
+      // Real mode: use stored API key as session token (set after OTP verification)
+      if (this.credentials.apiKey) {
+        this.authToken = this.credentials.apiKey
+        return { success: true, token: this.credentials.apiKey }
       }
 
-      return response
+      return {
+        success: false,
+        error: "No session token found. Please reconnect via Settings → GST.",
+      }
     } catch (error) {
       return {
         success: false,
@@ -74,202 +192,137 @@ export class GSTAPIClient {
     }
   }
 
-  // Step 2: Fetch electronic cash ledger data
+  // ─── Fetch electronic cash ledger ─────────────────────────────────────────────
   async fetchCashLedger(fromDate: string, toDate: string): Promise<GSTLedgerEntry[]> {
     if (!this.authToken) {
       throw new Error("Not authenticated. Call authenticate() first.")
     }
 
-    try {
-      if (this.useMockAPI) {
-        const response = await fetch("/api/gst/mock", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "cash_ledger", fromDate, toDate }),
-        })
-        const data = await response.json()
-        return data.data
-      }
-
-      // Real API call
-      const ledgerData = await this.mockFetchLedger(fromDate, toDate)
-      return ledgerData
-    } catch (error) {
-      throw new Error(`Failed to fetch cash ledger: ${error instanceof Error ? error.message : "Unknown error"}`)
+    if (this.useMockAPI) {
+      const response = await fetch("/api/gst/mock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "cash_ledger", fromDate, toDate }),
+      })
+      const data = await response.json()
+      return data.data
     }
+
+    const clientId = process.env.GST_CLIENT_ID || ""
+    const response = await fetch(
+      `${this.baseURL}/ledger/cash?gstin=${this.credentials?.gstin}&fromDate=${fromDate}&toDate=${toDate}`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          clientid: clientId,
+          "auth-token": this.authToken,
+        },
+      }
+    )
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}))
+      throw new Error(err?.error?.message || `Ledger fetch failed (${response.status})`)
+    }
+
+    const data = await response.json()
+    // Normalize GST portal response format to our internal format
+    return (data.data?.ledger || []).map((e: any) => ({
+      date: e.dt,
+      description: e.desc,
+      debitAmount: Number(e.damt || 0),
+      creditAmount: Number(e.camt || 0),
+      balance: Number(e.bal || 0),
+      transactionId: e.txid,
+      period: e.rp,
+    }))
   }
 
-  // Step 3: Fetch GSTR-1 data (outward supplies)
+  // ─── Fetch GSTR-1 (outward supplies) ──────────────────────────────────────────
   async fetchGSTR1(period: string): Promise<any> {
     if (!this.authToken) {
       throw new Error("Not authenticated. Call authenticate() first.")
     }
 
-    try {
-      if (this.useMockAPI) {
-        const response = await fetch("/api/gst/mock", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "gstr1", period }),
-        })
-        const data = await response.json()
-        return data.data
-      }
-
-      // Real API call
-      const gstr1Data = await this.mockFetchGSTR1(period)
-      return gstr1Data
-    } catch (error) {
-      throw new Error(`Failed to fetch GSTR-1: ${error instanceof Error ? error.message : "Unknown error"}`)
+    if (this.useMockAPI) {
+      const response = await fetch("/api/gst/mock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "gstr1", period }),
+      })
+      const data = await response.json()
+      return data.data
     }
+
+    const clientId = process.env.GST_CLIENT_ID || ""
+    const response = await fetch(
+      `${this.baseURL}/returns/gstr1?gstin=${this.credentials?.gstin}&ret_period=${period}`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          clientid: clientId,
+          "auth-token": this.authToken,
+        },
+      }
+    )
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}))
+      throw new Error(err?.error?.message || `GSTR-1 fetch failed (${response.status})`)
+    }
+
+    const data = await response.json()
+    return data.data
   }
 
-  // Step 4: Fetch GSTR-3B summary
+  // ─── Fetch GSTR-3B summary ────────────────────────────────────────────────────
   async fetchGSTR3B(period: string): Promise<any> {
     if (!this.authToken) {
       throw new Error("Not authenticated. Call authenticate() first.")
     }
 
-    try {
-      if (this.useMockAPI) {
-        const response = await fetch("/api/gst/mock", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "gstr3b", period }),
-        })
-        const data = await response.json()
-        return data.data
-      }
-
-      // Real API call
-      const gstr3bData = await this.mockFetchGSTR3B(period)
-      return gstr3bData
-    } catch (error) {
-      throw new Error(`Failed to fetch GSTR-3B: ${error instanceof Error ? error.message : "Unknown error"}`)
-    }
-  }
-
-  // Mock methods for testing (replace with real API calls in production)
-  private async mockGSTAuth(): Promise<GSTAuthResponse> {
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-
-    // Validate GSTIN format (basic check)
-    if (this.credentials && this.credentials.gstin.length === 15) {
-      return {
-        success: true,
-        token: `mock-token-${Date.now()}`,
-      }
+    if (this.useMockAPI) {
+      const response = await fetch("/api/gst/mock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "gstr3b", period }),
+      })
+      const data = await response.json()
+      return data.data
     }
 
-    return {
-      success: false,
-      error: "Invalid GSTIN format",
-    }
-  }
-
-  private async mockFetchLedger(fromDate: string, toDate: string): Promise<GSTLedgerEntry[]> {
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-
-    // Return mock ledger data
-    return [
+    const clientId = process.env.GST_CLIENT_ID || ""
+    const response = await fetch(
+      `${this.baseURL}/returns/gstr3b?gstin=${this.credentials?.gstin}&ret_period=${period}`,
       {
-        date: "2024-01-15",
-        description: "Electronic Cash Ledger - Payment via Challan",
-        debitAmount: 0,
-        creditAmount: 50000,
-        balance: 50000,
-        transactionId: "PMT202401150001",
-        period: "012024",
-      },
-      {
-        date: "2024-01-20",
-        description: "GSTR-3B Filing - Tax Liability",
-        debitAmount: 45000,
-        creditAmount: 0,
-        balance: 5000,
-        transactionId: "LBL202401200001",
-        period: "012024",
-      },
-    ]
-  }
-
-  private async mockFetchGSTR1(period: string): Promise<any> {
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-
-    return {
-      period,
-      gstin: this.credentials?.gstin,
-      b2b: [
-        {
-          ctin: "27AHQPA1234A1Z5",
-          invoices: [
-            {
-              inum: "INV001",
-              idt: "2024-01-15",
-              val: 118000,
-              pos: "27",
-              rchrg: "N",
-              inv_typ: "R",
-              itms: [
-                {
-                  num: 1,
-                  itm_det: {
-                    txval: 100000,
-                    rt: 18,
-                    iamt: 0,
-                    camt: 9000,
-                    samt: 9000,
-                  },
-                },
-              ],
-            },
-          ],
+        headers: {
+          "Content-Type": "application/json",
+          clientid: clientId,
+          "auth-token": this.authToken,
         },
-      ],
+      }
+    )
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}))
+      throw new Error(err?.error?.message || `GSTR-3B fetch failed (${response.status})`)
     }
-  }
 
-  private async mockFetchGSTR3B(period: string): Promise<any> {
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-
-    return {
-      period,
-      gstin: this.credentials?.gstin,
-      summary: {
-        outward_supplies: {
-          taxable_value: 500000,
-          integrated_tax: 0,
-          central_tax: 45000,
-          state_tax: 45000,
-          cess: 0,
-        },
-        inward_supplies: {
-          taxable_value: 100000,
-          integrated_tax: 0,
-          central_tax: 9000,
-          state_tax: 9000,
-          cess: 0,
-        },
-        net_tax: {
-          integrated_tax: 0,
-          central_tax: 36000,
-          state_tax: 36000,
-          cess: 0,
-        },
-      },
-    }
+    const data = await response.json()
+    return data.data
   }
 }
 
-// Helper function to validate GSTIN format
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+// Validates the 15-character GSTIN format
+// Structure: 2-digit state code + 10-char PAN + entity number + alphabet + checksum
 export function validateGSTIN(gstin: string): boolean {
-  // GSTIN format: 2 digits (state code) + 10 alphanumeric (PAN) + 1 digit + 1 alphabet + 1 alphanumeric
   const gstinRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/
   return gstinRegex.test(gstin)
 }
 
-// Helper function to format GST period (MMYYYY)
+// Formats a JS Date into the MMYYYY period string the GST portal uses
 export function formatGSTPeriod(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, "0")
   const year = date.getFullYear()

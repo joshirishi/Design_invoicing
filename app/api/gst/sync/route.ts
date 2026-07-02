@@ -106,17 +106,21 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error("[v0] GST sync error:", error)
 
-    // Log failed sync
-    await sql`
-      INSERT INTO gst_sync_logs (
-        profile_id, sync_type, status, error_message
-      ) VALUES (
-        1,
-        ${request.json().then((b) => b.syncType)},
-        'failed',
-        ${error.message}
-      )
-    `
+    // Log failed sync — syncType is already extracted from the parsed body above
+    try {
+      await sql`
+        INSERT INTO gst_sync_logs (
+          profile_id, sync_type, status, error_message
+        ) VALUES (
+          1,
+          ${syncType ?? "unknown"},
+          'failed',
+          ${error.message}
+        )
+      `
+    } catch {
+      // If DB logging also fails, still return the original error
+    }
 
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
