@@ -128,8 +128,9 @@ export function InvoiceImportModal() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          invoice_number:   ocrData.invoice_number ?? `OCR-${Date.now()}`,
-          client_id:        1, // placeholder — user should link after saving
+          invoice_number:   ocrData.invoice_number || null,
+          client_name:      ocrData.client_name || null,
+          client_gstin:     ocrData.client_gstin || null,
           invoice_date:     ocrData.invoice_date ?? new Date().toISOString().split("T")[0],
           description:      lineItems[0]?.description ?? "Imported invoice",
           terms:            ocrData.terms ?? null,
@@ -141,6 +142,7 @@ export function InvoiceImportModal() {
           sgst_rate:  lineItems[0]?.sgst_rate ?? 9,
           cgst_amount: cgstTotal, sgst_amount: sgstTotal,
           total_amount: subtotal + cgstTotal + sgstTotal,
+          import_source: "ocr",
         }),
       })
       const json = await res.json()
@@ -267,7 +269,7 @@ export function InvoiceImportModal() {
                     : <><FileSearch className="h-4 w-4 mr-2" />Scan with AI</>}
                 </Button>
                 <p className="text-xs text-center text-muted-foreground">
-                  Uses Gemini 2.0 Flash — requires <code className="bg-muted px-1 rounded">GOOGLE_GENERATIVE_AI_API_KEY</code>
+                  Uses Gemini 2.5 Flash via Vercel AI Gateway
                 </p>
               </>
             )}
