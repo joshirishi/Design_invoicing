@@ -10,6 +10,15 @@ import { Resend } from "resend"
 
 const CRON_SECRET = process.env.CRON_SECRET
 
+const GST_DOC_LABELS: Record<string, string> = {
+  gstr2b: "GSTR-2B (ITC Statement)",
+  gstr1: "GSTR-1 (Outward Supplies)",
+  gstr3b: "GSTR-3B (Monthly Return)",
+  gstr9: "GSTR-9 (Annual Return)",
+  reg_cert: "GST Registration Certificate",
+  challan: "PMT-06 Payment Challan",
+}
+
 function fmt(n: number) {
   return `₹${Number(n).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`
 }
@@ -21,12 +30,19 @@ function fmtDate(d: string) {
 function buildDigestHtml(data: {
   overdueInvoices: Array<{ invoice_number: string; total_amount: number; invoice_date: string; daysOverdue: number }>
   unreconciledCredits: Array<{ description: string; credit: number; transaction_date: string }>
-  unreconciledDebits:  Array<{ description: string; debit:  number; transaction_date: string }>
+  unreconciledDebits: Array<{ description: string; debit: number; transaction_date: string }>
+  gstOverdue: Array<{ doc_type: string; due_date: string | null; daysOverdue: number }>
+  gstDueSoon: Array<{ doc_type: string; due_date: string | null; daysLeft: number }>
   appUrl: string
 }): string {
-  const hasItems = data.overdueInvoices.length + data.unreconciledCredits.length + data.unreconciledDebits.length > 0
+  const totalItems =
+    data.overdueInvoices.length +
+    data.unreconciledCredits.length +
+    data.unreconciledDebits.length +
+    data.gstOverdue.length +
+    data.gstDueSoon.length
 
-  if (!hasItems) return ""
+  if (totalItems === 0) return ""
 
   const overdueSection = data.overdueInvoices.length > 0 ? `
     <h2 style="font-size:16px;font-weight:700;margin:24px 0 12px;color:#dc2626">
@@ -99,6 +115,56 @@ function buildDigestHtml(data: {
       </tbody>
     </table>` : ""
 
+  // GST overdue section
+  const gstOverdueSection = data.gstOverdue.length > 0 ? `
+    <h2 style="font-size:16px;font-weight:700;margin:24px 0 8px;color:#dc2626">
+      GST Documents — Overdue (${data.gstOverdue.length})
+    </h2>
+    <p style="font-size:12px;color:#777;margin:0 0 10px">These documents were due but have not been uploaded to InvoiceFlow.</p>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead>
+        <tr style="background:#fef2f2">
+          <th style="text-align:left;padding:8px 12px;color:#666">Document</th>
+          <th style="text-align:left;padding:8px 12px;color:#666">Due Date</th>
+          <th style="text-align:left;padding:8px 12px;color:#666">Days Overdue</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${data.gstOverdue.map((d) => `
+          <tr style="border-top:1px solid #fecaca">
+            <td style="padding:8px 12px;font-weight:600">${GST_DOC_LABELS[d.doc_type] || d.doc_type}</td>
+            <td style="padding:8px 12px;color:#555">${d.due_date ? fmtDate(d.due_date) : "—"}</td>
+            <td style="padding:8px 12px;color:#dc2626;font-weight:600">${d.daysOverdue}d</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>` : ""
+
+  // GST due soon section
+  const gstDueSoonSection = data.gstDueSoon.length > 0 ? `
+    <h2 style="font-size:16px;font-weight:700;margin:24px 0 8px;color:#d97706">
+      GST Documents — Due Soon (${data.gstDueSoon.length})
+    </h2>
+    <p style="font-size:12px;color:#777;margin:0 0 10px">Download from gst.gov.in and upload to InvoiceFlow before the deadline.</p>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead>
+        <tr style="background:#fffbeb">
+          <th style="text-align:left;padding:8px 12px;color:#666">Document</th>
+          <th style="text-align:left;padding:8px 12px;color:#666">Due Date</th>
+          <th style="text-align:left;padding:8px 12px;color:#666">Days Left</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${data.gstDueSoon.map((d) => `
+          <tr style="border-top:1px solid #fde68a">
+            <td style="padding:8px 12px;font-weight:600">${GST_DOC_LABELS[d.doc_type] || d.doc_type}</td>
+            <td style="padding:8px 12px;color:#555">${d.due_date ? fmtDate(d.due_date) : "—"}</td>
+            <td style="padding:8px 12px;color:#d97706;font-weight:600">${d.daysLeft}d</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>` : ""
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /></head>
@@ -106,13 +172,19 @@ function buildDigestHtml(data: {
   <div style="max-width:640px;margin:0 auto;background:#fff">
     <div style="background:#1a1a2e;padding:24px 32px">
       <h1 style="color:#fff;margin:0;font-size:20px;font-weight:700">InvoiceFlow Daily Digest</h1>
-      <p style="color:#a3a3cc;margin:4px 0 0;font-size:13px">${new Date().toLocaleDateString("en-IN", { weekday:"long", day:"2-digit", month:"long", year:"numeric" })}</p>
+      <p style="color:#a3a3cc;margin:4px 0 0;font-size:13px">${new Date().toLocaleDateString("en-IN", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}</p>
     </div>
     <div style="padding:24px 32px">
+      ${gstOverdueSection}
+      ${gstDueSoonSection}
       ${overdueSection}
       ${creditSection}
       ${debitSection}
-      <div style="margin-top:28px">
+      <div style="margin-top:28px;display:flex;gap:12px;flex-wrap:wrap">
+        <a href="${data.appUrl}/dashboard/gst-report"
+           style="display:inline-block;background:#16a34a;color:#fff;text-decoration:none;padding:12px 24px;border-radius:6px;font-size:14px;font-weight:600">
+          GST Documents →
+        </a>
         <a href="${data.appUrl}/dashboard/reconciliation"
            style="display:inline-block;background:#1a1a2e;color:#fff;text-decoration:none;padding:12px 24px;border-radius:6px;font-size:14px;font-weight:600">
           Open Reconciliation →
@@ -128,7 +200,6 @@ function buildDigestHtml(data: {
 }
 
 export async function GET(request: Request) {
-  // Validate cron secret in production (optional but recommended)
   if (CRON_SECRET) {
     const authHeader = request.headers.get("authorization")
     if (authHeader !== `Bearer ${CRON_SECRET}`) {
@@ -137,7 +208,7 @@ export async function GET(request: Request) {
   }
 
   const resendKey = process.env.RESEND_API_KEY
-  const toEmail   = process.env.NOTIFICATION_EMAIL
+  const toEmail = process.env.NOTIFICATION_EMAIL
 
   if (!resendKey || !toEmail) {
     return NextResponse.json(
@@ -149,7 +220,7 @@ export async function GET(request: Request) {
   try {
     const orgId = await getCurrentOrgId()
 
-    // Overdue invoices (past due date, still unpaid)
+    // Overdue invoices
     const overdueRows = await sql`
       SELECT id, invoice_number, total_amount, invoice_date, payment_due_days
       FROM invoices
@@ -171,7 +242,7 @@ export async function GET(request: Request) {
       LIMIT 20
     `
 
-    // Unreconciled debits older than 3 days (potential CC payments not linked)
+    // Unreconciled debits older than 3 days
     const unreconciledDebitRows = await sql`
       SELECT id, description, debit, transaction_date
       FROM bank_transactions
@@ -188,7 +259,32 @@ export async function GET(request: Request) {
       LIMIT 20
     `
 
+    // GST documents overdue (due_date < today, not uploaded)
+    const gstOverdueRows = await sql`
+      SELECT doc_type, due_date
+      FROM gst_documents
+      WHERE org_id = ${orgId}
+        AND status != 'uploaded'
+        AND due_date IS NOT NULL
+        AND due_date < CURRENT_DATE
+      ORDER BY due_date ASC
+    `
+
+    // GST documents due within 5 days (not yet uploaded)
+    const gstDueSoonRows = await sql`
+      SELECT doc_type, due_date
+      FROM gst_documents
+      WHERE org_id = ${orgId}
+        AND status != 'uploaded'
+        AND due_date IS NOT NULL
+        AND due_date >= CURRENT_DATE
+        AND due_date <= CURRENT_DATE + INTERVAL '5 days'
+      ORDER BY due_date ASC
+    `
+
     const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
     const overdueInvoices = overdueRows.map((inv) => {
       const dueDate = new Date(inv.invoice_date as string)
       dueDate.setDate(dueDate.getDate() + (inv.payment_due_days as number))
@@ -196,7 +292,28 @@ export async function GET(request: Request) {
       return { ...inv, daysOverdue: Math.max(0, daysOverdue) }
     }) as Array<{ invoice_number: string; total_amount: number; invoice_date: string; daysOverdue: number }>
 
-    const totalActionItems = overdueInvoices.length + unreconciledCreditRows.length + unreconciledDebitRows.length
+    const gstOverdue = gstOverdueRows.map((d) => ({
+      doc_type: d.doc_type as string,
+      due_date: d.due_date as string | null,
+      daysOverdue: d.due_date
+        ? Math.max(0, Math.floor((today.getTime() - new Date(d.due_date as string).getTime()) / (1000 * 60 * 60 * 24)))
+        : 0,
+    }))
+
+    const gstDueSoon = gstDueSoonRows.map((d) => ({
+      doc_type: d.doc_type as string,
+      due_date: d.due_date as string | null,
+      daysLeft: d.due_date
+        ? Math.max(0, Math.ceil((new Date(d.due_date as string).getTime() - today.getTime()) / (1000 * 60 * 60 * 24)))
+        : 0,
+    }))
+
+    const totalActionItems =
+      overdueInvoices.length +
+      unreconciledCreditRows.length +
+      unreconciledDebitRows.length +
+      gstOverdue.length +
+      gstDueSoon.length
 
     if (totalActionItems === 0) {
       return NextResponse.json({ sent: false, reason: "No action items — digest skipped" })
@@ -207,7 +324,9 @@ export async function GET(request: Request) {
     const html = buildDigestHtml({
       overdueInvoices,
       unreconciledCredits: unreconciledCreditRows as Array<{ description: string; credit: number; transaction_date: string }>,
-      unreconciledDebits:  unreconciledDebitRows  as Array<{ description: string; debit:  number; transaction_date: string }>,
+      unreconciledDebits: unreconciledDebitRows as Array<{ description: string; debit: number; transaction_date: string }>,
+      gstOverdue,
+      gstDueSoon,
       appUrl,
     })
 
