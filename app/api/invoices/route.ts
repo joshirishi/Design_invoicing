@@ -3,20 +3,14 @@ import { sql, rawSql } from "@/lib/db"
 import { getCurrentOrgId } from "@/lib/get-org"
 import { getFinancialYear } from "@/lib/financial-year"
 
+export const dynamic = "force-dynamic"
+
 export async function GET() {
   try {
     const orgId = await getCurrentOrgId()
-    const invoices = await sql`
-      SELECT i.*,
-        json_build_object(
-          'id', c.id, 'name', c.name, 'email', c.email,
-          'address', c.address, 'gstin', c.gstin, 'state_code', c.state_code
-        ) as client
-      FROM invoices i
-      LEFT JOIN clients c ON i.client_id = c.id
-      WHERE i.org_id = ${orgId}
-      ORDER BY i.invoice_date DESC
-    `
+    const oid = String(Math.floor(orgId))
+    // Single-line rawSql — multi-line sql`` with JOINs fails silently via exec_sql RPC
+    const invoices = await rawSql(`SELECT i.id, i.org_id, i.invoice_number, i.client_id, i.invoice_date, i.service_date, i.description, i.hsn_code, i.amount_before_tax, i.cgst_rate, i.sgst_rate, i.igst_rate, i.cgst_amount, i.sgst_amount, i.igst_amount, i.total_amount, i.financial_year, i.place_of_supply, i.terms, i.status, i.payment_due_days, i.import_source, i.created_at, i.updated_at, c.name AS client_name, c.email AS client_email, c.gstin AS client_gstin FROM invoices i LEFT JOIN clients c ON i.client_id = c.id WHERE i.org_id = ${oid} ORDER BY i.invoice_date DESC`)
     return NextResponse.json(invoices)
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })

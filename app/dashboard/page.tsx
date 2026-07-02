@@ -1,4 +1,4 @@
-import { sql } from "@/lib/db"
+import { rawSql } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { FileText, Users, DollarSign, AlertCircle, TrendingUp, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -14,13 +14,15 @@ export const dynamic = "force-dynamic"
 export default async function DashboardPage() {
   try {
     const orgId = await getCurrentOrgId()
+    const oid = String(Math.floor(orgId))
     const [invoicesResult, clientsResult, paymentsResult] = await Promise.all([
-      sql`SELECT * FROM invoices WHERE org_id = ${orgId}`,
-      sql`SELECT COUNT(*)::int as count FROM clients WHERE org_id = ${orgId}`,
-      sql`SELECT amount, payment_date FROM payments WHERE org_id = ${orgId}`,
+      rawSql(`SELECT id, invoice_number, invoice_date, total_amount, status FROM invoices WHERE org_id = ${oid} ORDER BY invoice_date DESC`),
+      rawSql(`SELECT COUNT(*)::int as count FROM clients WHERE org_id = ${oid}`),
+      rawSql(`SELECT amount, payment_date FROM payments WHERE org_id = ${oid}`),
     ])
 
-    const needsSetup = invoicesResult.length === 0 || clientsResult.length === 0 || paymentsResult.length === 0
+    // Only block on zero invoices — payments/clients can be empty and we still show the dashboard
+    const needsSetup = invoicesResult.length === 0
 
     if (needsSetup) {
       return (
