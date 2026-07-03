@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic"
 
 import { sql } from "@/lib/db"
+import { createServerClient } from "@/lib/supabase-auth"
 import { getCurrentOrgId } from "@/lib/get-org"
 import { InvoiceForm } from "@/components/invoice-form"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -9,20 +10,25 @@ import type { TemplateConfig } from "@/lib/template-defaults"
 
 export default async function NewInvoicePage() {
   try {
+    const supabase = createServerClient()
     const orgId = await getCurrentOrgId()
-    const [clients, profile, templateRows] = await Promise.all([
+
+    const [clients, profile] = await Promise.all([
       sql`SELECT * FROM clients ORDER BY name ASC`,
       sql`SELECT * FROM profiles WHERE org_id = ${orgId} LIMIT 1`.then((rows) => rows[0] || null),
-      sql`SELECT id, name, config FROM invoice_templates WHERE org_id = ${orgId} AND is_default = TRUE ORDER BY updated_at DESC LIMIT 1`,
     ])
 
-    const rawTpl = templateRows[0]
-    const activeTemplate = rawTpl
-      ? {
-          id: rawTpl.id as number,
-          name: rawTpl.name as string,
-          config: (typeof rawTpl.config === "string" ? JSON.parse(rawTpl.config) : rawTpl.config) as TemplateConfig,
-        }
+    const { data: tplData } = await supabase
+      .from("invoice_templates")
+      .select("id, name, config")
+      .eq("org_id", orgId)
+      .eq("is_default", true)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .single()
+
+    const activeTemplate = tplData
+      ? { id: tplData.id as number, name: tplData.name as string, config: tplData.config as TemplateConfig }
       : null
 
     return (

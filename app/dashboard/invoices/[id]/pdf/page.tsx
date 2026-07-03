@@ -32,14 +32,17 @@ export default async function InvoicePdfPage({ params }: { params: Promise<{ id:
   const profile   = profiles[0] as typeof SAMPLE_PROFILE | undefined
 
   // Load org's active template, fall back to Classic
-  const templateRows = await sql`
-    SELECT config FROM invoice_templates
-    WHERE org_id = ${orgId} AND is_default = TRUE
-    ORDER BY updated_at DESC LIMIT 1
-  `
-  const rawConfig = templateRows[0]?.config
-  const config: TemplateConfig =
-    (typeof rawConfig === "string" ? JSON.parse(rawConfig) : rawConfig) ?? CLASSIC_TEMPLATE
+  const { createServerClient } = await import("@/lib/supabase-auth")
+  const supabase = createServerClient()
+  const { data: tplData } = await supabase
+    .from("invoice_templates")
+    .select("config")
+    .eq("org_id", orgId)
+    .eq("is_default", true)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .single()
+  const config: TemplateConfig = (tplData?.config as TemplateConfig) ?? CLASSIC_TEMPLATE
 
   // Load line items (if multi-item template)
   const lineItems = await sql`

@@ -1,29 +1,29 @@
 export const dynamic = "force-dynamic"
 
-import { sql } from "@/lib/db"
+import { createServerClient } from "@/lib/supabase-auth"
 import { getCurrentOrgId } from "@/lib/get-org"
 import { STARTER_TEMPLATES } from "@/lib/template-defaults"
 import TemplatesPageClient from "@/components/templates-page-client"
 import type { TemplateConfig } from "@/lib/template-defaults"
 
 export default async function TemplatesPage() {
+  const supabase = createServerClient()
   const orgId = await getCurrentOrgId()
 
-  // Load any saved templates for this org
-  const rows = await sql`
-    SELECT id, name, is_default, config, updated_at
-    FROM invoice_templates
-    WHERE org_id = ${orgId}
-    ORDER BY is_default DESC, updated_at DESC
-  `
+  const { data } = await supabase
+    .from("invoice_templates")
+    .select("id, name, is_default, config, updated_at")
+    .eq("org_id", orgId)
+    .order("is_default", { ascending: false })
+    .order("updated_at", { ascending: false })
 
-  // Filter out any null rows and ensure config is a parsed object (not a JSON string)
-  const saved = rows
-    .filter(Boolean)
-    .map((r) => ({
-      ...r,
-      config: typeof r.config === "string" ? JSON.parse(r.config) : r.config,
-    })) as Array<{ id: number; name: string; is_default: boolean; config: TemplateConfig; updated_at: string }>
+  const saved = (data ?? []) as Array<{
+    id: number
+    name: string
+    is_default: boolean
+    config: TemplateConfig
+    updated_at: string
+  }>
 
   return (
     <TemplatesPageClient
