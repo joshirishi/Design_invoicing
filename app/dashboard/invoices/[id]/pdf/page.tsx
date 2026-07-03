@@ -37,7 +37,9 @@ export default async function InvoicePdfPage({ params }: { params: Promise<{ id:
     WHERE org_id = ${orgId} AND is_default = TRUE
     ORDER BY updated_at DESC LIMIT 1
   `
-  const config: TemplateConfig = (templateRows[0]?.config as TemplateConfig) ?? CLASSIC_TEMPLATE
+  const rawConfig = templateRows[0]?.config
+  const config: TemplateConfig =
+    (typeof rawConfig === "string" ? JSON.parse(rawConfig) : rawConfig) ?? CLASSIC_TEMPLATE
 
   // Load line items (if multi-item template)
   const lineItems = await sql`

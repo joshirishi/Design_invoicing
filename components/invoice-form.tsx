@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Plus, Trash2, AlertCircle } from "lucide-react"
 import type { Client, Profile, InvoiceLineItem } from "@/lib/types"
+import type { TemplateConfig } from "@/lib/template-defaults"
 import { isInterState } from "@/lib/financial-year"
 
 const GST_OPTIONS = [
@@ -67,9 +68,10 @@ function computeRow(row: LineItemRow, interState: boolean): InvoiceLineItem {
 interface InvoiceFormProps {
   clients: Client[]
   profile: Profile | null
+  activeTemplate?: { id: number; name: string; config: TemplateConfig } | null
 }
 
-export function InvoiceForm({ clients, profile }: InvoiceFormProps) {
+export function InvoiceForm({ clients, profile, activeTemplate }: InvoiceFormProps) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -158,6 +160,25 @@ export function InvoiceForm({ clients, profile }: InvoiceFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Active template banner */}
+      {activeTemplate ? (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-indigo-100 bg-indigo-50 px-4 py-2.5 text-sm">
+          <span className="text-indigo-700">
+            Invoice will use template: <strong className="font-semibold">{activeTemplate.name}</strong>
+          </span>
+          <a href="/dashboard/invoices/templates" className="shrink-0 text-xs text-indigo-500 hover:text-indigo-700 underline underline-offset-2">
+            Change template
+          </a>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-gray-50 px-4 py-2.5 text-sm text-gray-500">
+          <span>No template selected — using Classic layout for PDF.</span>
+          <a href="/dashboard/invoices/templates" className="shrink-0 text-xs text-indigo-500 hover:text-indigo-700 underline underline-offset-2">
+            Pick a template
+          </a>
+        </div>
+      )}
+
       {/* ── Header ──────────────────────────────────────────── */}
       <Card>
         <CardHeader>

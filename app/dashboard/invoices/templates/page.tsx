@@ -10,17 +10,25 @@ export default async function TemplatesPage() {
   const orgId = await getCurrentOrgId()
 
   // Load any saved templates for this org
-  const saved = await sql`
+  const rows = await sql`
     SELECT id, name, is_default, config, updated_at
     FROM invoice_templates
     WHERE org_id = ${orgId}
     ORDER BY is_default DESC, updated_at DESC
   `
 
+  // Filter out any null rows and ensure config is a parsed object (not a JSON string)
+  const saved = rows
+    .filter(Boolean)
+    .map((r) => ({
+      ...r,
+      config: typeof r.config === "string" ? JSON.parse(r.config) : r.config,
+    })) as Array<{ id: number; name: string; is_default: boolean; config: TemplateConfig; updated_at: string }>
+
   return (
     <TemplatesPageClient
       starters={STARTER_TEMPLATES}
-      saved={saved as Array<{ id: number; name: string; is_default: boolean; config: TemplateConfig; updated_at: string }>}
+      saved={saved}
     />
   )
 }

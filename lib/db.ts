@@ -59,8 +59,7 @@ export async function sql(strings: TemplateStringsArray, ...values: unknown[]): 
   }
 
   const data = await res.json()
-  // exec_sql returns a JSON array; handle both array and single-object results
-  return Array.isArray(data) ? data : [data]
+  return normalizeRows(data, query)
 }
 
 // rawSql — for bulk operations where you need to pass a pre-built SQL string.
@@ -86,7 +85,47 @@ export async function rawSql(query: string): Promise<Row[]> {
   }
 
   const data = await res.json()
-  return Array.isArray(data) ? data : [data]
+  return normalizeRows(data, query)
+}
+
+// Normalizes exec_sql responses into a consistent Row[].
+// exec_sql may return: an array, a single object, null (no rows / no RETURNING),
+// or a Postgres error object like { code, message, details }.
+function normalizeRows(data: unknown, query: string): Row[] {
+  if (data === null || data === undefined) return []
+
+  // Detect exec_sql error objects returned with HTTP 200
+  if (
+    data !== null &&
+    typeof data === "object" &&
+    !Array.isArray(data) &&
+    ("code" in (data as object) || "message" in (data as object)) &&
+    "hint" in (data as object)
+  ) {
+    const err = data as Record<string, unknown>
+    throw new Error(`SQL error: ${err.message ?? err.code}\nQuery: ${query.slice(0, 200)}`)
+  }
+
+  if (Array.isArray(data)) {
+    // JSONB columns may arrive as JSON strings — auto-parse them.
+    return data.map(parseJsonbColumns) as Row[]
+  }
+
+  // Single-object result (exec_sql with EXECUTE ... INTO)
+  return [parseJsonbColumns(data as Row)]
+}
+
+// If any column value is a JSON string that starts with { or [, parse it.
+function parseJsonbColumns(row: Row): Row {
+  const out: Row = {}
+  for (const [k, v] of Object.entries(row)) {
+    if (typeof v === "string" && (v.startsWith("{") || v.startsWith("["))) {
+      try { out[k] = JSON.parse(v) } catch { out[k] = v }
+    } else {
+      out[k] = v
+    }
+  }
+  return out
 }
 
 // Re-export from the client-safe module so existing imports still work.

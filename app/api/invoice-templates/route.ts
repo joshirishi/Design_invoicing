@@ -18,7 +18,9 @@ export async function GET(req: Request) {
         WHERE org_id = ${orgId} AND is_default = TRUE
         ORDER BY updated_at DESC LIMIT 1
       `
-      return NextResponse.json(rows[0]?.config ?? null)
+      const rawConfig = rows[0]?.config
+      const config = typeof rawConfig === "string" ? JSON.parse(rawConfig) : rawConfig
+      return NextResponse.json(config ?? null)
     }
 
     const rows = await sql`
@@ -27,7 +29,12 @@ export async function GET(req: Request) {
       WHERE org_id = ${orgId}
       ORDER BY is_default DESC, updated_at DESC
     `
-    return NextResponse.json(rows)
+    // Ensure config is always a parsed object, never a JSON string
+    const templates = rows.filter(Boolean).map((r) => ({
+      ...r,
+      config: typeof r.config === "string" ? JSON.parse(r.config) : r.config,
+    }))
+    return NextResponse.json(templates)
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }
