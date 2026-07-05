@@ -1,6 +1,7 @@
 "use client"
 import { useState } from "react"
-import { Check, Pencil, Star, Sparkles, Layers, FolderOpen } from "lucide-react"
+import { Check, Pencil, Star, Sparkles, Layers, FolderOpen, Trash2 } from "lucide-react"
+import { fetchFromAPI } from "@/lib/fetch"
 import { TemplatePreview } from "@/components/template-preview"
 import { CanvasTemplatePreview } from "@/components/canvas-template-preview"
 import { TemplateEditor } from "@/components/template-editor"
@@ -20,12 +21,23 @@ interface Props {
   saved: SavedTemplate[]
 }
 
-export default function TemplatesPageClient({ starters, saved }: Props) {
+export default function TemplatesPageClient({ starters, saved: initialSaved }: Props) {
+  const [saved, setSaved] = useState(initialSaved)
   const [editing, setEditing] = useState<{
     config: TemplateConfig
     id?: number
     name?: string
   } | null>(null)
+
+  async function handleDelete(id: number) {
+    if (!confirm("Delete this template? This cannot be undone.")) return
+    try {
+      await fetchFromAPI(`/api/invoice-templates?id=${id}`, { method: "DELETE" })
+      setSaved((prev) => prev.filter((t) => t.id !== id))
+    } catch {
+      alert("Failed to delete template. Please try again.")
+    }
+  }
 
   if (editing) {
     return (
@@ -84,6 +96,7 @@ export default function TemplatesPageClient({ starters, saved }: Props) {
                 isDefault={t.is_default}
                 savedId={t.id}
                 onEdit={() => setEditing({ config: t.config, id: t.id, name: t.name })}
+                onDelete={() => handleDelete(t.id)}
               />
             ))}
           </div>
@@ -140,7 +153,7 @@ export default function TemplatesPageClient({ starters, saved }: Props) {
 // ── Template Card ─────────────────────────────────────────────────────────────
 
 function TemplateCard({
-  name, description, config, isDefault, isStarter, savedId, onEdit,
+  name, description, config, isDefault, isStarter, savedId, onEdit, onDelete,
 }: {
   name: string
   description?: string
@@ -149,6 +162,7 @@ function TemplateCard({
   isStarter?: boolean
   savedId?: number
   onEdit: () => void
+  onDelete?: () => void
 }) {
   const c = config.colors
 
@@ -208,6 +222,15 @@ function TemplateCard({
             <Pencil className="w-3 h-3" />
             {isStarter ? "Use & Edit" : "Edit"}
           </button>
+          {onDelete && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete() }}
+              className="flex items-center justify-center w-7 h-7 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 border border-transparent hover:border-red-100 transition"
+              title="Delete template"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
     </div>
