@@ -128,6 +128,26 @@ export async function PUT(request: NextRequest) {
   }
 }
 
+// DELETE /api/invoices?id=X — permanently delete an invoice and its line items / payments
+export async function DELETE(request: NextRequest) {
+  try {
+    const orgId = await getCurrentOrgId()
+    const oid = String(Math.floor(orgId))
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get("id")
+    if (!id) return NextResponse.json({ error: "id required" }, { status: 400 })
+
+    // Delete child rows first (exec_sql / rawSql for these)
+    await rawSql(`DELETE FROM invoice_line_items WHERE invoice_id = ${id}`)
+    await rawSql(`DELETE FROM payments WHERE invoice_id = ${id}`)
+    await rawSql(`DELETE FROM invoices WHERE id = ${id} AND org_id = ${oid}`)
+
+    return NextResponse.json({ success: true })
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
+
 // Auto-mark unpaid invoices as overdue when their due date has passed
 export async function PATCH() {
   try {
