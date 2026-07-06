@@ -5,10 +5,20 @@ import { getFinancialYear } from "@/lib/financial-year"
 
 export const dynamic = "force-dynamic"
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const orgId = await getCurrentOrgId()
     const oid = String(Math.floor(orgId))
+    const { searchParams } = new URL(request.url)
+
+    // Lightweight duplicate check: GET /api/invoices?check_number=INV-001
+    const checkNumber = searchParams.get("check_number")
+    if (checkNumber) {
+      const safe = checkNumber.replace(/'/g, "''")
+      const rows = await rawSql(`SELECT id, invoice_number FROM invoices WHERE org_id = ${oid} AND LOWER(invoice_number) = LOWER('${safe}') LIMIT 1`)
+      return NextResponse.json({ exists: rows.length > 0, id: rows[0]?.id ?? null })
+    }
+
     // Single-line rawSql — multi-line sql`` with JOINs fails silently via exec_sql RPC
     const invoices = await rawSql(`SELECT i.id, i.org_id, i.invoice_number, i.client_id, i.invoice_date, i.service_date, i.description, i.hsn_code, i.amount_before_tax, i.cgst_rate, i.sgst_rate, i.igst_rate, i.cgst_amount, i.sgst_amount, i.igst_amount, i.total_amount, i.financial_year, i.place_of_supply, i.terms, i.status, i.payment_due_days, i.import_source, i.created_at, i.updated_at, c.name AS client_name, c.email AS client_email, c.gstin AS client_gstin FROM invoices i LEFT JOIN clients c ON i.client_id = c.id WHERE i.org_id = ${oid} ORDER BY i.invoice_date DESC`)
     return NextResponse.json(invoices)

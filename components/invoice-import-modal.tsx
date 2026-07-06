@@ -11,7 +11,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   Upload, Download, FileText, CheckCircle2, AlertCircle, Loader2,
-  Image as ImageIcon, FileSearch, Pencil,
+  Image as ImageIcon, FileSearch, Pencil, AlertTriangle,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 
@@ -55,12 +55,30 @@ export function InvoiceImportModal() {
   const [ocrData, setOcrData] = useState<OcrData | null>(null)
   const [ocrSaving, setOcrSaving] = useState(false)
   const [ocrSaved, setOcrSaved] = useState(false)
+  const [ocrDuplicate, setOcrDuplicate] = useState<boolean>(false)
+  const [duplicateChecking, setDuplicateChecking] = useState(false)
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next)
     if (!next) {
       setCsvFile(null); setCsvError(null); setCsvResult(null)
       setOcrFile(null); setOcrError(null); setOcrData(null); setOcrSaved(false)
+      setOcrDuplicate(false)
+    }
+  }
+
+  // Check if an invoice number already exists in the system
+  const checkDuplicate = async (invoiceNumber: string | null) => {
+    if (!invoiceNumber?.trim()) { setOcrDuplicate(false); return }
+    setDuplicateChecking(true)
+    try {
+      const res = await fetch(`/api/invoices?check_number=${encodeURIComponent(invoiceNumber.trim())}`)
+      const json = await res.json()
+      setOcrDuplicate(json.exists === true)
+    } catch {
+      setOcrDuplicate(false)
+    } finally {
+      setDuplicateChecking(false)
     }
   }
 
@@ -91,7 +109,10 @@ export function InvoiceImportModal() {
       const res = await fetch("/api/invoices/ocr", { method: "POST", body: fd })
       const json = await res.json()
       if (!res.ok) { setOcrError(json.detail || json.error || "Scan failed"); return }
-      setOcrData(json.data as OcrData)
+      const data = json.data as OcrData
+      setOcrData(data)
+      // Immediately check if this invoice number is already saved
+      await checkDuplicate(data.invoice_number)
     } catch (err) {
       setOcrError(err instanceof Error ? err.message : "Scan failed")
     } finally {
@@ -269,7 +290,7 @@ export function InvoiceImportModal() {
                     : <><FileSearch className="h-4 w-4 mr-2" />Scan with AI</>}
                 </Button>
                 <p className="text-xs text-center text-muted-foreground">
-                  Uses Gemini 2.5 Flash via Vercel AI Gateway
+                  Uses Gemini 2.5 Flash · 1,500 free scans/day
                 </p>
               </>
             )}
@@ -293,7 +314,14 @@ export function InvoiceImportModal() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs">Invoice Number</Label>
-                    <Input value={ocrData.invoice_number ?? ""} onChange={(e) => updateOcrField("invoice_number", e.target.value)} className="text-sm" />
+                    <Input
+                      value={ocrData.invoice_number ?? ""}
+                      onChange={(e) => {
+                        updateOcrField("invoice_number", e.target.value)
+                        checkDuplicate(e.target.value)
+                      }}
+                      className={`text-sm ${ocrDuplicate ? "border-amber-400 focus-visible:ring-amber-400" : ""}`}
+                    />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Invoice Date</Label>
@@ -336,12 +364,32 @@ export function InvoiceImportModal() {
                   ))}
                 </div>
 
+                {/* Duplicate warning */}
+                {ocrDuplicate && !duplicateChecking && (
+                  <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
+                    <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-500" />
+                    <div>
+                      <p className="font-medium">Invoice already exists</p>
+                      <p className="text-xs mt-0.5 text-amber-700">
+                        An invoice with this number is already in your account. Change the invoice number above, or click <strong>Save Anyway</strong> to create a second copy.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {ocrError && <p className="flex items-center gap-1.5 text-sm text-destructive"><AlertCircle className="h-4 w-4 shrink-0" />{ocrError}</p>}
 
                 <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => { setOcrData(null); setOcrFile(null) }} className="flex-1">Re-scan</Button>
-                  <Button onClick={handleOcrSave} disabled={ocrSaving} className="flex-1">
-                    {ocrSaving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving…</> : "Save Invoice"}
+                  <Button variant="outline" onClick={() => { setOcrData(null); setOcrFile(null); setOcrDuplicate(false) }} className="flex-1">Re-scan</Button>
+                  <Button
+                    onClick={handleOcrSave}
+                    disabled={ocrSaving || duplicateChecking}
+                    className={`flex-1 ${ocrDuplicate ? "bg-amber-500 hover:bg-amber-600" : ""}`}
+                  >
+                    {ocrSaving
+                      ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving…</>
+                      : ocrDuplicate ? "Save Anyway" : "Save Invoice"
+                    }
                   </Button>
                 </div>
               </div>
