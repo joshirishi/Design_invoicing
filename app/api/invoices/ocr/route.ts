@@ -1,12 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { generateText } from "ai"
-import { createGateway } from "@ai-sdk/gateway"
+import { google } from "@ai-sdk/google"
 
 // POST /api/invoices/ocr
 // Accepts a multipart form with a "file" field (PNG/JPG/WEBP/PDF).
 // Returns extracted invoice data as JSON for the user to confirm.
 //
-// Uses @ai-sdk/gateway → google/gemini-2.5-flash
+// Uses @ai-sdk/google → gemini-2.5-flash directly (1,500 free calls/day via GOOGLE_GENERATIVE_AI_API_KEY)
 // AI SDK v7: content parts use { type: "image", image, mediaType } or { type: "file", data, mediaType }
 
 const PROMPT = `You are an invoice data extractor for Indian tax invoices.
@@ -41,17 +41,14 @@ Rules:
 - invoice_date must be YYYY-MM-DD format.`
 
 export async function POST(request: NextRequest) {
-  const gatewayKey = process.env.AI_GATEWAY_API_KEY
-
-  if (!gatewayKey) {
+  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
     return NextResponse.json(
-      { error: "OCR not configured", detail: "AI_GATEWAY_API_KEY is missing." },
+      { error: "OCR not configured", detail: "GOOGLE_GENERATIVE_AI_API_KEY is missing." },
       { status: 503 },
     )
   }
 
-  const gateway = createGateway({ apiKey: gatewayKey })
-  const model = gateway("google/gemini-2.5-flash")
+  const model = google("gemini-2.5-flash")
 
   try {
     const formData = await request.formData()
