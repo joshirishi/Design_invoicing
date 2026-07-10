@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Single-line rawSql — multi-line template literals cause silent failures via exec_sql RPC
-    const transactions = await rawSql(`SELECT id, transaction_date, description, reference_number, debit, credit, balance, reconciled, category, category_source, payment_id FROM bank_transactions WHERE ${whereClause} ORDER BY transaction_date DESC LIMIT ${lim} OFFSET ${off}`)
+    const transactions = await rawSql(`SELECT id, transaction_date, description, reference_number, debit, credit, balance, reconciled, category, category_source, category_confidence, ledger_id, payment_id, purchase_id FROM bank_transactions WHERE ${whereClause} ORDER BY transaction_date DESC LIMIT ${lim} OFFSET ${off}`)
 
     const counts = await rawSql(`SELECT COUNT(*) FILTER (WHERE credit > 0 AND reconciled = false) AS credits, COUNT(*) FILTER (WHERE debit > 0 AND reconciled = false) AS debits, COUNT(*) FILTER (WHERE reconciled = true) AS reconciled FROM bank_transactions WHERE org_id = ${oid}`)
 
@@ -56,18 +56,18 @@ export async function POST(request: NextRequest) {
     const rules = await fetchRules(orgId)
 
     for (const txn of transactions) {
-      const { category, source } = categorize(txn.description || "", rules)
+      const { category, source, chartAccountId } = categorize(txn.description || "", rules)
       await sql`
         INSERT INTO bank_transactions (
           org_id, transaction_date, description, reference_number,
-          debit, credit, balance, reconciled, category, category_source
+          debit, credit, balance, reconciled, category, category_source, ledger_id
         )
         VALUES (
           ${orgId}, ${txn.transaction_date}, ${txn.description},
           ${txn.reference_number || null},
           ${txn.debit || null}, ${txn.credit || null},
           ${txn.balance || null}, false,
-          ${category}, ${source}
+          ${category}, ${source}, ${chartAccountId}
         )
       `
     }

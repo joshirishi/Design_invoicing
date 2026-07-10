@@ -110,14 +110,40 @@ export interface BankTransaction {
   balance: number | null
   reconciled: boolean
   payment_id: string | null
+  purchase_id: string | null      // FK to purchases (expense-side reconciliation)
   category: string | null
-  category_source: string | null
+  category_source: string | null  // 'keyword' | 'regex' | 'ai' | 'user' | 'fallback'
+  category_confidence: number | null // 0–100, set when category_source = 'ai'
   ledger_id: number | null        // FK to chart_of_accounts
   upload_batch_id: string | null
   source_format: string | null
   created_at: string
   payment?: Partial<Payment>
   ledger?: Partial<ChartOfAccount>
+}
+
+export interface CategoryRule {
+  id: number
+  org_id: number | null
+  chart_account_id: number
+  signal_prefix: string | null
+  match_type: "keyword" | "regex"
+  match_value: string
+  priority: number
+  is_system: boolean
+}
+
+export interface ReconciliationSuggestion {
+  id: number
+  org_id: number
+  bank_transaction_id: string
+  suggestion_type: "invoice" | "purchase"
+  chart_account_id: number | null
+  suggested_payload: Record<string, unknown>
+  confidence: number | null
+  status: "pending" | "accepted" | "dismissed"
+  created_at: string
+  updated_at: string
 }
 
 export interface Purchase {

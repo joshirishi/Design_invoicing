@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { sql, rawSql } from "@/lib/db"
 import { getCurrentOrgId } from "@/lib/get-org"
-import { categorize, fetchRules } from "@/lib/categorize"
+import { categorize, fetchRules, extractSignal } from "@/lib/categorize"
 import { parseCsvBank } from "@/lib/parsers/csv-bank"
 import { parseXlsBank } from "@/lib/parsers/xls-bank"
 import { parsePdfBank } from "@/lib/parsers/pdf-bank"
@@ -66,15 +66,36 @@ export async function POST(request: NextRequest) {
     const rules = await fetchRules(orgId)
     const batchId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
-    // Categorize all rows in memory — no DB calls needed per row
+    // Categorize all rows in memory via rules — no DB calls needed per row.
+    // Rows that stay "unresolved" are picked up by the Gemini fallback below.
     const categorized = rows.map((row) => {
-      const { category, source } = categorize(row.description, rules)
-      return { ...row, category, source }
+      const { category, source, chartAccountId } = categorize(row.description, rules)
+      return { ...row, category, source, chartAccountId }
+    })
+
+    const unresolved = categorized.filter((r) => r.source === "unresolved" && r.description)
+    let aiResults = new Map<string, { chartAccountId: number; accountName: string; confidence: number }>()
+    if (unresolved.length > 0) {
+      try {
+        const { categorizeWithGemini } = await import("@/lib/ai-categorize")
+        const uniqueSignals = Array.from(new Set(unresolved.map((r) => extractSignal(r.description).signal || r.description)))
+        aiResults = await categorizeWithGemini(uniqueSignals, orgId)
+      } catch (err) {
+        console.error("[bank-statements/upload] Gemini categorization skipped:", err)
+      }
+    }
+
+    const final = categorized.map((r) => {
+      if (r.source !== "unresolved") return { ...r, confidence: null as number | null }
+      const signal = extractSignal(r.description).signal || r.description
+      const ai = aiResults.get(signal)
+      if (!ai) return { ...r, confidence: null as number | null }
+      return { ...r, category: ai.accountName, source: "ai" as const, chartAccountId: ai.chartAccountId, confidence: ai.confidence }
     })
 
     // Build a single VALUES list for bulk INSERT
-    const valuesList = categorized.map((r) =>
-      `(${orgId}, ${esc(r.transaction_date)}, ${esc(r.description)}, ${esc(r.reference_number ?? null)}, ${num(r.debit)}, ${num(r.credit)}, ${num(r.balance)}, false, ${esc(r.category)}, ${esc(r.source)}, ${esc(batchId)}, ${esc(ext)})`
+    const valuesList = final.map((r) =>
+      `(${orgId}, ${esc(r.transaction_date)}, ${esc(r.description)}, ${esc(r.reference_number ?? null)}, ${num(r.debit)}, ${num(r.credit)}, ${num(r.balance)}, false, ${esc(r.category)}, ${esc(r.source)}, ${r.chartAccountId ?? "NULL"}, ${r.confidence ?? "NULL"}, ${esc(batchId)}, ${esc(ext)})`
     ).join(",\n")
 
     // Single bulk INSERT — ON CONFLICT DO NOTHING deduplicates against idx_bank_txn_dedup.
@@ -82,17 +103,16 @@ export async function POST(request: NextRequest) {
       INSERT INTO bank_transactions (
         org_id, transaction_date, description, reference_number,
         debit, credit, balance, reconciled,
-        category, category_source, upload_batch_id, source_format
+        category, category_source, ledger_id, category_confidence, upload_batch_id, source_format
       )
       VALUES ${valuesList}
       ON CONFLICT (org_id, transaction_date, description, COALESCE(debit, 0), COALESCE(credit, 0))
         DO NOTHING
     `)
 
-    // exec_sql doesn't return RETURNING rows for DML, so count separately
-    const countResult = await sql`
-      SELECT COUNT(*) AS cnt FROM bank_transactions WHERE upload_batch_id = ${batchId}
-    `
+    // exec_sql doesn't return RETURNING rows for DML, so count separately.
+    // NOTE: must be single-line — multi-line SELECTs silently return empty via the exec_sql RPC.
+    const countResult = await sql`SELECT COUNT(*) AS cnt FROM bank_transactions WHERE upload_batch_id = ${batchId}`
     const insertedCount = Number(countResult[0]?.cnt ?? 0)
     const skippedCount = rows.length - insertedCount
 

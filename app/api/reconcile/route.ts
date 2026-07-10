@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     if (batchId) {
       const orgId = await getCurrentOrgId()
       const result = await runAutoReconcile(orgId, batchId)
-      return NextResponse.json({ success: true, matched: result.matched })
+      return NextResponse.json({ success: true, matched: result.matched, suggestionsCreated: result.suggestionsCreated })
     }
 
     // Manual match path

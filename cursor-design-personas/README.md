@@ -1,10 +1,14 @@
 # Analyzthis_Design
 
-7 AI design personas for Cursor. Run structured UX critiques and multi-phase ideation sessions — right inside your AI chat.
+A set of AI design personas and a task-first evaluation framework that plugs into Cursor, Claude Code, and Codex CLI as slash commands.
+
+Install once. Run structured UX critiques, multi-phase ideation, and task-grounded screen reviews — directly inside your AI chat.
+
+**npm:** [analyzthis_design](https://www.npmjs.com/package/analyzthis_design)
+
+---
 
 ## Install
-
-Works with **Cursor**, **Claude Code**, and **Codex CLI**.
 
 ```bash
 # Cursor (default)
@@ -20,9 +24,7 @@ npx analyzthis_design --target codex
 npx analyzthis_design --target all
 ```
 
-Skills are copied to the correct directory for each tool and available immediately.
-
-| Tool | Install path |
+| Tool | Skills installed to |
 |---|---|
 | Cursor | `~/.cursor/skills/` |
 | Claude Code | `~/.claude/commands/` |
@@ -30,133 +32,197 @@ Skills are copied to the correct directory for each tool and available immediate
 
 ---
 
-## What gets installed
+## Skills Overview
 
-### 2 Orchestrating Skills
+### Entry points (start here)
 
-| Skill | What it does |
+| Command | What it does |
 |---|---|
-| `/design-critic` | 4-persona critique → returns a `SHIP / REVISE / BLOCK` verdict with a Composite Score |
-| `/ux-ideator` | 6-phase ideation workflow → produces two competing IA concepts, deliberates between them, and delivers an implementation-ready wireframe |
+| `/ux-story-gate` | **Recommended first step.** Discovers PRDs and user stories from your knowledge bank and repo, builds a task map, routes to the right personas, and synthesises findings by task with P0/P1/P2 priorities. |
+| `/design-critic` | 4-persona critique → `SHIP / REVISE / BLOCK` verdict with a Composite Score out of 20. |
+| `/ux-ideator` | 6-phase ideation → two competing IA concepts, deliberation, delight pass, feasibility check. |
 
-### 7 Individual Persona Skills
+### 7 Individual Personas
 
-You can also invoke each persona directly.
+Invoke directly for targeted, already-grounded questions. For full screen evaluation, prefer `/ux-story-gate`.
 
-| Skill | Persona | Role |
+| Command | Persona | What they evaluate |
 |---|---|---|
-| `/arjun` | UX Agent | Scores designs on the UX Honeycomb (7 dimensions, A–F) |
-| `/meera` | Business Agent | Evaluates retention, ARR, GTM lever, adoption risk by segment |
-| `/priya` | Feasibility Agent | T-shirt sizes engineering effort using a 2-axis model, flags state machine traps |
-| `/zara` | Delight Agent | Picks exactly ONE peak delight moment (or says "speed is the craft") |
-| `/noor` | IA Architect | Produces Concept A — minimalist, progressive disclosure, ≤3 nav levels |
-| `/anuj` | Power-User Advocate | Produces Concept B — dense, bulk actions, keyboard shortcuts |
-| `/raj` | Arbitrator | Resolves stalemates using 5 ranked product principles — never speaks first |
+| `/arjun` | UX Agent | UX Honeycomb (7 dimensions, A–F): Useful, Usable, Findable, Credible, Accessible, Desirable, Valuable |
+| `/meera` | Business Agent | Retention, ARR, GTM lever, adoption risk by customer segment |
+| `/priya` | Feasibility Agent | Engineering effort (T-shirt sizing, 2-axis model), state machine traps, implementation risks |
+| `/zara` | Delight Agent | Picks exactly ONE peak delight moment — or says "speed is the craft" for working surfaces |
+| `/noor` | IA Architect | Minimalist, progressive-disclosure wireframe — Concept A, ≤3 nav levels |
+| `/anuj` | Power-User Advocate | Dense, expert-optimized wireframe — Concept B, bulk actions, keyboard shortcuts |
+| `/raj` | Arbitrator | Resolves persona stalemates using 5 ranked product principles. Never speaks first. |
 
-### 1 Context Template
+### Supporting skills
 
-| Skill | Purpose |
+| Command | Purpose |
 |---|---|
-| `/design-personas` | Session context template — fill in once before any session so all 7 personas have project-specific grounding |
+| `/design-personas` | Session context template — fill in once before a session to ground all 7 personas in project-specific data |
+| `/knowledge-bank` | Auto-populated from your connected vault. All personas read this first. |
 
 ---
 
-## How to use
+## UX Story Gate — How it works
 
-### Quick design critique
+`/ux-story-gate` is the task-first entry point for any screen evaluation. It runs in 5 phases:
 
-Open a Cursor chat and type:
+**Phase 0 — PRD Discovery (automatic)**
+Before asking you anything, it scans:
+1. Your connected knowledge bank for user stories, PRDs, acceptance criteria
+2. The current repo for `PRD*.md`, `docs/**/*.md`, `requirements/*.md`, and any file containing "user story / acceptance criteria / done when"
 
-```
-/design-critic
+It builds a draft task map from what it finds and asks you to confirm — you correct, not fill in from scratch.
 
-[Paste your screen description, mockup link, or component spec]
-```
+**Phase 1 — Task Map Gate**
+If no PRD context is found anywhere, it asks for the task map manually:
+- Which persona? (e.g. Retailer Admin, Media Sales)
+- What task? (verb + object)
+- How often? (daily / weekly / one-time)
+- Done when?
+- Fails when?
 
-Arjun, Meera, Priya, and Zara each evaluate the design independently. You get a Composite Score out of 20 and a clear `SHIP / REVISE / BLOCK` verdict.
+**Phase 2 — Field Veto Pass**
+Every field, button, and section on the screen gets a verdict:
+- ✅ Keep — maps to a task
+- ❌ Cut — no task owner
+- ⚠️ Clarify — ambiguous
 
----
+**Phase 3 — Scale & States**
+Forces declaration of scale (rows/entities), and checks for Empty / Error / Loading / Edge states before personas run.
 
-### Full UX ideation from scratch
+**Phase 4 — Persona Routing**
+Routes to the right personas based on task characteristics — not screen type.
 
-```
-/design-personas
-[Fill in the session context template]
-
-/ux-ideator
-[Describe the feature you need to design]
-```
-
-The 6-phase workflow runs:
-
-1. **Meera** reframes the request as a business outcome
-2. **Noor + Anuj + Arjun** audit the existing IA for gaps
-3. **Noor** produces Concept A (minimalist), **Anuj** produces Concept B (dense)
-4. They deliberate — **Raj** arbitrates if they deadlock
-5. **Arjun** validates the synthesized concept on the UX Honeycomb
-6. **Zara** adds one delight moment (or says it's a working surface, skip)
-7. **Priya** sizes the engineering effort and flags risks
+**Phase 5 — Synthesis**
+A Task × Finding table with P0 / P1 / P2 priorities and a build-ready verdict.
 
 ---
 
-### Single persona
+## Knowledge Bank — Connect your vault
 
-```
-/arjun review this form flow — [description]
-/priya estimate this feature — [description]
-/zara find the delight moment in this onboarding — [description]
-```
-
----
-
-## CLI commands
+The knowledge bank lets you connect an Obsidian vault or any markdown folder so that personas read your actual project context — brand guidelines, design decisions, PRDs, research — before forming any opinion.
 
 ```bash
-# Install for Cursor (default)
-npx analyzthis_design
+# Connect a vault (all notes)
+npx analyzthis_design connect --vault ~/Documents/MyVault
 
-# Install for Claude Code
-npx analyzthis_design --target claude
+# Connect with tag filter (only notes tagged #design, #brand, #prd)
+npx analyzthis_design connect --vault ~/vault --tags design,brand,prd,product
 
-# Install for Codex CLI
-npx analyzthis_design --target codex
+# Connect with folder filter
+npx analyzthis_design connect --vault ~/vault --include Design,Brand,PRDs,Research
 
-# Install for all tools at once
-npx analyzthis_design --target all
+# Sync to Cursor
+npx analyzthis_design sync
 
-# Force overwrite existing skills
-npx analyzthis_design --target all --force
+# Sync to all tools
+npx analyzthis_design sync --target all
 
-# Remove all installed skills (from a specific tool)
-npx analyzthis_design remove --target cursor
-npx analyzthis_design remove --target all
+# Check what's connected
+npx analyzthis_design status
 
-# Check what's installed
-npx analyzthis_design list
-npx analyzthis_design list --target all
+# Remove a source
+npx analyzthis_design disconnect --vault ~/Documents/MyVault
+```
+
+Once synced, the knowledge bank is auto-read at the start of every persona session. Your project-specific context takes full precedence over built-in persona defaults.
+
+**PRDs and user stories** in your vault are automatically detected and surfaced at the top of the knowledge bank — `ux-story-gate` reads them in Phase 0 to build the task map without you having to type it out.
+
+Config is stored at `~/.analyzthis_design/config.json` — global across all projects.
+
+---
+
+## CLI Reference
+
+```bash
+# ── Install ────────────────────────────────────────────────────────────────
+npx analyzthis_design                          # install for Cursor
+npx analyzthis_design --target claude          # install for Claude Code
+npx analyzthis_design --target codex           # install for Codex CLI
+npx analyzthis_design --target all             # install for all tools
+npx analyzthis_design --force                  # overwrite existing skills
+
+# ── Remove ─────────────────────────────────────────────────────────────────
+npx analyzthis_design remove                   # remove from Cursor
+npx analyzthis_design remove --target all      # remove from all tools
+
+# ── List ───────────────────────────────────────────────────────────────────
+npx analyzthis_design list                     # show Cursor installs
+npx analyzthis_design list --target all        # show all tool installs
+
+# ── Knowledge bank ─────────────────────────────────────────────────────────
+npx analyzthis_design connect --vault <path>
+npx analyzthis_design connect --vault <path> --tags design,prd,brand
+npx analyzthis_design connect --vault <path> --include Design,PRDs,Research
+npx analyzthis_design sync
+npx analyzthis_design sync --target all
+npx analyzthis_design disconnect --vault <path>
+npx analyzthis_design status
 ```
 
 ---
 
-## How it works
+## How it fits together
 
-This package copies 10 SKILL.md files into your `~/.cursor/skills/` directory. Cursor automatically makes them available as `/skill-name` commands in any chat session. The skills are plain markdown — no backend, no API keys, no runtime dependencies.
+```
+Your vault / repo PRDs
+        ↓
+  knowledge bank  ←── npx analyzthis_design sync
+        ↓
+  /ux-story-gate
+        ↓
+  Phase 0: read knowledge bank + scan repo for PRDs
+        ↓
+  Build task map (or confirm draft from PRDs)
+        ↓
+  Route to: /noor  /anuj  /arjun  (+/meera  /zara  as needed)
+        ↓
+  Task × Finding table  →  P0 / P1 / P2 verdict
+```
 
-Each persona has:
-- A defined **lens** (what they evaluate and how)
-- A **mandatory output format** (so you get structured, comparable output)
-- **Canonical failure patterns** (real anti-patterns they watch for)
-- **Failure modes** (where the persona itself can go wrong — so the AI self-corrects)
+---
+
+## Repository structure
+
+```
+bin/
+  cli.js              CLI entry point
+lib/
+  install.js          Skill installation logic (copies to ~/.cursor/skills/ etc.)
+  knowledge.js        Vault reading, sync, PRD categorisation
+scripts/
+  obfuscate.js        Build step — obfuscates lib/ and bin/ into dist/ before publish
+skills/
+  arjun/              UX Agent — Honeycomb scoring
+  meera/              Business Agent — retention, ARR, GTM
+  priya/              Feasibility Agent — effort sizing
+  zara/               Delight Agent — peak-end moment
+  noor/               IA Architect — minimalist Concept A
+  anuj/               Power-User Advocate — dense Concept B
+  raj/                Arbitrator — stalemate resolution
+  design-critic/      Orchestrator — 4-persona critique
+  ux-ideator/         Orchestrator — 6-phase ideation
+  ux-story-gate/      Orchestrator — task-first gate + PRD discovery
+  design-personas/    Session context template
+  knowledge-bank/     Auto-populated from connected vault
+  design-reference/   12 CSV files — colors, typography, UX guidelines,
+                      component patterns, charts, icons, 16 framework stacks
+```
 
 ---
 
 ## Requirements
 
-- [Cursor](https://cursor.com) with Agent Mode
 - Node.js 16+
+- [Cursor](https://cursor.com) with Agent Mode (for `/skill` commands)
+- Claude Code or Codex CLI if using those targets
 
 ---
 
 ## License
 
-MIT
+MIT — [Rishikesh Joshi](https://github.com/rishikeshjoshi)

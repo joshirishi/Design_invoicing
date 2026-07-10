@@ -5,9 +5,7 @@ import { getCurrentOrgId } from "@/lib/get-org"
 export async function GET() {
   try {
     const orgId = await getCurrentOrgId()
-    const clients = await sql`
-      SELECT * FROM clients WHERE org_id = ${orgId} ORDER BY name ASC
-    `
+    const clients = await sql`SELECT * FROM clients WHERE org_id = ${orgId} ORDER BY name ASC`
     return NextResponse.json(clients)
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })
@@ -18,12 +16,10 @@ export async function POST(request: NextRequest) {
   try {
     const orgId = await getCurrentOrgId()
     const { name, email, phone, address, gstin, state_code, pan_no } = await request.json()
-    const result = await sql`
-      INSERT INTO clients (org_id, name, email, phone, address, gstin, state_code, pan_no)
+    const result = await sql`INSERT INTO clients (org_id, name, email, phone, address, gstin, state_code, pan_no)
       VALUES (${orgId}, ${name}, ${email || null}, ${phone || null}, ${address || null},
               ${gstin || null}, ${state_code || null}, ${pan_no || null})
-      RETURNING *
-    `
+      RETURNING *`
     return NextResponse.json(result[0])
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })
@@ -34,15 +30,13 @@ export async function PUT(request: NextRequest) {
   try {
     const orgId = await getCurrentOrgId()
     const { id, name, email, phone, address, gstin, state_code, pan_no } = await request.json()
-    const result = await sql`
-      UPDATE clients
+    const result = await sql`UPDATE clients
       SET name = ${name}, email = ${email || null}, phone = ${phone || null},
           address = ${address || null}, gstin = ${gstin || null},
           state_code = ${state_code || null}, pan_no = ${pan_no || null},
           updated_at = NOW()
       WHERE id = ${id} AND org_id = ${orgId}
-      RETURNING *
-    `
+      RETURNING *`
     return NextResponse.json(result[0])
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })

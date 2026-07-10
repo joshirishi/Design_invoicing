@@ -9,6 +9,7 @@ import { fetchFromAPI } from "@/lib/fetch"
 import { useRouter } from "next/navigation"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CategoryBadge } from "@/components/category-badge"
+import { SuggestionsTab } from "@/components/suggestions-tab"
 
 interface BankTxn {
   id: string
@@ -21,7 +22,10 @@ interface BankTxn {
   reconciled: boolean
   category: string | null
   category_source: string | null
+  category_confidence: number | null
+  ledger_id: number | null
   payment_id: string | null
+  purchase_id: string | null
 }
 
 interface Payment {
@@ -33,7 +37,7 @@ interface Payment {
 
 interface Counts { credits: string; debits: string; reconciled: string }
 
-type TabKey = "credits" | "debits" | "reconciled"
+type TabKey = "credits" | "debits" | "reconciled" | "suggested"
 
 const PAGE = 50
 
@@ -49,8 +53,17 @@ export function ReconciliationView({ payments }: { payments: Payment[] }) {
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [selectedPayments, setSelectedPayments] = useState<Record<string, string>>({})
   const [isReconciling, setIsReconciling] = useState<string | null>(null)
+  const [suggestedCount, setSuggestedCount] = useState<number | null>(null)
+
+  useEffect(() => {
+    fetch("/api/reconciliation-suggestions")
+      .then((r) => r.json())
+      .then((rows) => setSuggestedCount(Array.isArray(rows) ? rows.length : 0))
+      .catch(() => setSuggestedCount(0))
+  }, [])
 
   const fetchPage = useCallback(async (tab: TabKey, pageOffset: number, append = false) => {
+    if (tab === "suggested") { setLoading(false); return }
     append ? setLoadingMore(true) : setLoading(true)
     setFetchError(null)
     try {
@@ -114,6 +127,7 @@ export function ReconciliationView({ payments }: { payments: Payment[] }) {
     { key: "credits",    label: "Incoming (Credits)", count: counts.credits },
     { key: "debits",     label: "Outgoing (Debits)",  count: counts.debits  },
     { key: "reconciled", label: "Reconciled",          count: counts.reconciled },
+    { key: "suggested",  label: "Suggested",           count: suggestedCount == null ? "…" : String(suggestedCount) },
   ]
 
   return (
@@ -164,8 +178,11 @@ export function ReconciliationView({ payments }: { payments: Payment[] }) {
         </div>
       )}
 
+      {/* Suggested tab — editable pre-filled invoice/purchase forms */}
+      {activeTab === "suggested" && <SuggestionsTab />}
+
       {/* Loading skeleton */}
-      {loading && (
+      {activeTab !== "suggested" && loading && (
         <div className="space-y-3">
           {[1, 2, 3].map((n) => (
             <div key={n} className="h-20 rounded-lg border bg-muted/30 animate-pulse" />
@@ -174,7 +191,7 @@ export function ReconciliationView({ payments }: { payments: Payment[] }) {
       )}
 
       {/* Transaction list */}
-      {!loading && !fetchError && (
+      {activeTab !== "suggested" && !loading && !fetchError && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
@@ -212,6 +229,7 @@ export function ReconciliationView({ payments }: { payments: Payment[] }) {
                               description={txn.description || ""}
                               category={txn.category}
                               source={txn.category_source ?? undefined}
+                              chartAccountId={txn.ledger_id}
                             />
                           )}
                           {activeTab === "reconciled" && txn.payment_id && (

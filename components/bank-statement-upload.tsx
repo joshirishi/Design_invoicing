@@ -20,6 +20,7 @@ interface UploadResult {
   skipped: number
   total: number
   autoMatched: number
+  suggestionsCreated?: number
   batchId: string
 }
 
@@ -100,7 +101,7 @@ export function BankStatementUpload() {
       const res = await fetch(`/api/reconcile?batchId=${result.batchId}`, { method: "POST" })
       const json = await res.json()
       if (!res.ok) { setError(json.error ?? "Reconcile failed"); return }
-      setResult((prev) => prev ? { ...prev, autoMatched: json.matched ?? 0 } : prev)
+      setResult((prev) => prev ? { ...prev, autoMatched: json.matched ?? 0, suggestionsCreated: json.suggestionsCreated ?? 0 } : prev)
       router.refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Reconcile failed")
@@ -189,7 +190,13 @@ export function BankStatementUpload() {
                   <span>{result.autoMatched} transaction{result.autoMatched > 1 ? "s" : ""} auto-reconciled with invoices</span>
                 </div>
               )}
-              {result.inserted > 0 && result.autoMatched === 0 && (
+              {!!result.suggestionsCreated && result.suggestionsCreated > 0 && (
+                <div className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span>{result.suggestionsCreated} new invoice/purchase suggestion{result.suggestionsCreated > 1 ? "s" : ""} ready for review</span>
+                </div>
+              )}
+              {result.inserted > 0 && result.autoMatched === 0 && result.suggestionsCreated === undefined && (
                 <Button
                   size="sm"
                   variant="outline"

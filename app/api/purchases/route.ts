@@ -1,18 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { sql } from "@/lib/db"
+import { sql, rawSql } from "@/lib/db"
 import { getCurrentOrgId } from "@/lib/get-org"
 
 export async function GET() {
   try {
     const orgId = await getCurrentOrgId()
-    const purchases = await sql`
-      SELECT p.*,
-        json_build_object('id', v.id, 'name', v.name, 'gstin', v.gstin) as vendor
-      FROM purchases p
-      LEFT JOIN vendors v ON p.vendor_id = v.id
-      WHERE p.org_id = ${orgId}
-      ORDER BY p.invoice_date DESC
-    `
+    const oid = String(Math.floor(orgId))
+    // Single-line rawSql — multi-line sql`` with JOINs fails silently via exec_sql RPC
+    const purchases = await rawSql(`SELECT p.*, json_build_object('id', v.id, 'name', v.name, 'gstin', v.gstin) as vendor FROM purchases p LEFT JOIN vendors v ON p.vendor_id = v.id WHERE p.org_id = ${oid} ORDER BY p.invoice_date DESC`)
     return NextResponse.json(purchases)
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })
@@ -37,18 +32,13 @@ export async function POST(request: NextRequest) {
     const total_with_tax = Number(amount) + Number(cgst || 0) + Number(sgst || 0) + Number(igst || 0)
     const fy = getFinancialYear(invoice_date || new Date().toISOString())
 
-    const result = await sql`
-      INSERT INTO purchases (
-        org_id, vendor_id, vendor_name, vendor_gstin, invoice_date, invoice_number,
-        description, amount, cgst, sgst, igst, total_with_tax, financial_year
-      ) VALUES (
-        ${orgId}, ${vendor_id || null}, ${resolvedName}, ${resolvedGstin}, ${invoice_date},
-        ${invoice_number || null}, ${description || null},
-        ${amount}, ${cgst || 0}, ${sgst || 0}, ${igst || 0}, ${total_with_tax}, ${fy}
-      )
-      RETURNING *
-    `
-    return NextResponse.json(result[0])
+    // rawSql single-line insert + separate fetch — exec_sql doesn't reliably return RETURNING rows
+    const q = (v: unknown) => v == null ? "NULL" : `'${String(v).replace(/'/g, "''")}'`
+    const n = (v: unknown) => v == null ? "NULL" : String(Number(v))
+    const oid = String(Math.floor(orgId))
+    await rawSql(`INSERT INTO purchases (org_id, vendor_id, vendor_name, vendor_gstin, invoice_date, invoice_number, description, amount, cgst, sgst, igst, total_with_tax, financial_year) VALUES (${oid}, ${vendor_id ? String(Number(vendor_id)) : "NULL"}, ${q(resolvedName)}, ${q(resolvedGstin)}, ${q(invoice_date)}, ${q(invoice_number || null)}, ${q(description || null)}, ${n(amount)}, ${n(cgst || 0)}, ${n(sgst || 0)}, ${n(igst || 0)}, ${n(total_with_tax)}, ${q(fy)})`)
+    const fetched = await rawSql(`SELECT * FROM purchases WHERE org_id = ${oid} ORDER BY id DESC LIMIT 1`)
+    return NextResponse.json(fetched[0] ?? {})
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }

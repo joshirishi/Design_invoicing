@@ -28,27 +28,23 @@ export async function POST(req: Request) {
   }
 }
 
-// GET /api/categorize?org_id=1 — fetch all rules for the org
+// GET /api/categorize?org_id=1 — fetch all tree-based rules for the org, grouped by account
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url)
     const orgId = parseInt(searchParams.get("org_id") || "1")
 
-    const rules = await sql`
-      SELECT id, category, keywords, regex_pattern, priority, is_system, org_id
-      FROM category_rules
-      WHERE org_id = ${orgId} OR org_id IS NULL
-      ORDER BY priority DESC, category ASC
-    `
+    // Single-line — multi-line SELECTs with JOINs silently return empty via the exec_sql RPC.
+    const rules = await sql`SELECT cr.id, cr.chart_account_id, ca.name AS account_name, cr.signal_prefix, cr.match_type, cr.match_value, cr.priority, cr.is_system, cr.org_id FROM category_rules cr JOIN chart_of_accounts ca ON cr.chart_account_id = ca.id WHERE cr.org_id = ${orgId} OR cr.org_id IS NULL ORDER BY cr.priority DESC, ca.name ASC`
 
-    // Group by category for UI display
-    const grouped: Record<string, { keywords: string[]; priority: number; isSystem: boolean; ruleId: number }> = {}
-    for (const r of rules as { category: string; keywords: string[]; priority: number; is_system: boolean; id: number }[]) {
-      if (!grouped[r.category]) {
-        grouped[r.category] = { keywords: r.keywords, priority: r.priority, isSystem: r.is_system, ruleId: r.id }
-      } else {
-        grouped[r.category].keywords.push(...r.keywords)
+    // Group by account for UI display
+    type Rule = { id: number; chart_account_id: number; account_name: string; signal_prefix: string | null; match_type: string; match_value: string; priority: number; is_system: boolean }
+    const grouped: Record<string, { chartAccountId: number; priority: number; isSystem: boolean; matches: { ruleId: number; prefix: string | null; type: string; value: string }[] }> = {}
+    for (const r of rules as unknown as Rule[]) {
+      if (!grouped[r.account_name]) {
+        grouped[r.account_name] = { chartAccountId: r.chart_account_id, priority: r.priority, isSystem: r.is_system, matches: [] }
       }
+      grouped[r.account_name].matches.push({ ruleId: r.id, prefix: r.signal_prefix, type: r.match_type, value: r.match_value })
     }
 
     return NextResponse.json({ rules, grouped })
