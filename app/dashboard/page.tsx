@@ -1,6 +1,6 @@
 import { rawSql } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { FileText, Users, DollarSign, AlertCircle, TrendingUp, Plus } from "lucide-react"
+import { FileText, Users, DollarSign, AlertCircle, TrendingUp, Plus, Receipt } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { RevenueChart } from "@/components/revenue-chart"
 import { RecentInvoices } from "@/components/recent-invoices"
@@ -15,10 +15,11 @@ export default async function DashboardPage() {
   try {
     const orgId = await getCurrentOrgId()
     const oid = String(Math.floor(orgId))
-    const [invoicesResult, clientsResult, paymentsResult] = await Promise.all([
+    const [invoicesResult, clientsResult, paymentsResult, gstResult] = await Promise.all([
       rawSql(`SELECT id, invoice_number, invoice_date, total_amount, status FROM invoices WHERE org_id = ${oid} ORDER BY invoice_date DESC`),
       rawSql(`SELECT COUNT(*)::int as count FROM clients WHERE org_id = ${oid}`),
       rawSql(`SELECT amount, payment_date FROM payments WHERE org_id = ${oid}`),
+      rawSql(`SELECT COALESCE(SUM(cgst_amount + sgst_amount + igst_amount), 0) AS current_month_gst FROM invoices WHERE org_id = ${oid} AND status != 'draft' AND DATE_TRUNC('month', invoice_date) = DATE_TRUNC('month', CURRENT_DATE)`),
     ])
 
     // Only block on zero invoices — payments/clients can be empty and we still show the dashboard
@@ -64,6 +65,7 @@ export default async function DashboardPage() {
     const invoices = invoicesResult || []
     const totalInvoices = invoices.length
     const totalClients = clientsResult[0]?.count || 0
+    const currentMonthGST = Number(gstResult[0]?.current_month_gst || 0)
 
     const unpaidInvoices = invoices.filter((inv) => inv.status === "unpaid" || inv.status === "overdue").length
     const overdueInvoices = invoices.filter((inv) => inv.status === "overdue").length
@@ -184,6 +186,26 @@ export default async function DashboardPage() {
               </CardContent>
             </Card>
           </div>
+
+          <Card className="relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent" />
+            <CardContent className="flex items-center justify-between gap-4 py-5">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-indigo-500/10 flex items-center justify-center shrink-0">
+                  <Receipt className="h-5 w-5 text-indigo-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">This month&apos;s GST liability</p>
+                  <p className="text-2xl font-bold">₹{currentMonthGST.toLocaleString("en-IN")}</p>
+                </div>
+              </div>
+              <Link href="/dashboard/gst-report">
+                <Button variant="outline" size="sm">
+                  Check GST Report
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
             <Card className="lg:col-span-4">

@@ -11,10 +11,11 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Plus, Trash2, AlertCircle } from "lucide-react"
 import type { Client, Profile, InvoiceLineItem } from "@/lib/types"
 import type { TemplateConfig } from "@/lib/template-defaults"
-import { isInterState } from "@/lib/financial-year"
+import { isInterState, INDIAN_STATES } from "@/lib/financial-year"
 
 const GST_OPTIONS = [
   { label: "0%",  combined: 0,  half: 0 },
@@ -71,10 +72,16 @@ interface InvoiceFormProps {
   activeTemplate?: { id: number; name: string; config: TemplateConfig } | null
 }
 
-export function InvoiceForm({ clients, profile, activeTemplate }: InvoiceFormProps) {
+export function InvoiceForm({ clients: initialClients, profile, activeTemplate }: InvoiceFormProps) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const [clients, setClients] = useState<Client[]>(initialClients)
+  const [addClientOpen, setAddClientOpen] = useState(false)
+  const [newClient, setNewClient] = useState({ name: "", gstin: "", state_code: "" })
+  const [addingClient, setAddingClient] = useState(false)
+  const [addClientError, setAddClientError] = useState<string | null>(null)
 
   const [header, setHeader] = useState({
     client_id:        "",
@@ -96,6 +103,37 @@ export function InvoiceForm({ clients, profile, activeTemplate }: InvoiceFormPro
 
   const updateHeader = (field: string, value: string) =>
     setHeader((prev) => ({ ...prev, [field]: value }))
+
+  // Auto-fill state_code from GSTIN, same rule as client-form.tsx / vendors-view.tsx
+  const handleNewClientGstin = (v: string) => {
+    setNewClient((prev) => {
+      if (v.length >= 2 && /^\d{2}/.test(v)) {
+        const code = v.slice(0, 2)
+        if (INDIAN_STATES.find((s) => s.code === code)) return { ...prev, gstin: v, state_code: code }
+      }
+      return { ...prev, gstin: v }
+    })
+  }
+
+  const handleAddClient = async () => {
+    if (!newClient.name.trim()) { setAddClientError("Client name is required"); return }
+    setAddingClient(true)
+    setAddClientError(null)
+    try {
+      const created = await fetchFromAPI("/api/clients", {
+        method: "POST",
+        body: JSON.stringify({ name: newClient.name, gstin: newClient.gstin || null, state_code: newClient.state_code || null }),
+      })
+      setClients((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)))
+      updateHeader("client_id", String(created.id))
+      setAddClientOpen(false)
+      setNewClient({ name: "", gstin: "", state_code: "" })
+    } catch (err) {
+      setAddClientError(err instanceof Error ? err.message : "Failed to add client")
+    } finally {
+      setAddingClient(false)
+    }
+  }
 
   const updateRow = useCallback((index: number, field: keyof LineItemRow, value: string | number) => {
     setRows((prev) => prev.map((r, i) => i === index ? { ...r, [field]: value } : r))
@@ -194,7 +232,16 @@ export function InvoiceForm({ clients, profile, activeTemplate }: InvoiceFormPro
         <CardContent className="grid gap-4 sm:grid-cols-2">
           {/* Client */}
           <div className="space-y-1.5">
-            <Label htmlFor="client">Client *</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="client">Client *</Label>
+              <button
+                type="button"
+                className="text-xs text-indigo-500 hover:text-indigo-700 underline underline-offset-2"
+                onClick={() => setAddClientOpen(true)}
+              >
+                + Add client
+              </button>
+            </div>
             <Select value={header.client_id} onValueChange={(v) => updateHeader("client_id", v)}>
               <SelectTrigger id="client">
                 <SelectValue placeholder="Select client" />
@@ -398,6 +445,58 @@ export function InvoiceForm({ clients, profile, activeTemplate }: InvoiceFormPro
           </CardContent>
         </Card>
       </div>
+
+      {/* Inline "+ Add client" dialog — minimal fields, just enough for GST type detection */}
+      <Dialog open={addClientOpen} onOpenChange={setAddClientOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Client</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="new-client-name">Client Name *</Label>
+              <Input
+                id="new-client-name"
+                value={newClient.name}
+                onChange={(e) => setNewClient((prev) => ({ ...prev, name: e.target.value }))}
+                placeholder="Company or individual name"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="new-client-gstin">GSTIN</Label>
+              <Input
+                id="new-client-gstin"
+                value={newClient.gstin}
+                onChange={(e) => handleNewClientGstin(e.target.value)}
+                placeholder="27AAGCC1503R1ZH"
+                maxLength={15}
+              />
+              <p className="text-xs text-muted-foreground">State auto-filled from GSTIN</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="new-client-state">State *</Label>
+              <Select value={newClient.state_code} onValueChange={(v) => setNewClient((prev) => ({ ...prev, state_code: v }))}>
+                <SelectTrigger id="new-client-state"><SelectValue placeholder="Select state" /></SelectTrigger>
+                <SelectContent>
+                  {INDIAN_STATES.map((s) => (
+                    <SelectItem key={s.code} value={s.code}>{s.code} — {s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Determines IGST (inter-state) vs CGST+SGST (intra-state) on this invoice
+              </p>
+            </div>
+            {addClientError && <p className="text-sm text-destructive">{addClientError}</p>}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setAddClientOpen(false)}>Cancel</Button>
+            <Button type="button" onClick={handleAddClient} disabled={addingClient}>
+              {addingClient ? "Adding…" : "Add Client"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </form>
   )
 }

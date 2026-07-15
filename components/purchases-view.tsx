@@ -32,6 +32,7 @@ export function PurchasesView({ purchases: initial, vendors = [] }: PurchasesVie
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((p) => ({ ...p, [k]: e.target.value }))
@@ -52,6 +53,7 @@ export function PurchasesView({ purchases: initial, vendors = [] }: PurchasesVie
   const handleSave = async () => {
     if (!form.vendor_name || !form.invoice_date || !form.amount) return
     setSaving(true)
+    setError(null)
     try {
       const result = await fetchFromAPI("/api/purchases", {
         method: "POST",
@@ -69,7 +71,7 @@ export function PurchasesView({ purchases: initial, vendors = [] }: PurchasesVie
       setShowForm(false)
       router.refresh()
     } catch (err) {
-      console.error("Save failed:", err)
+      setError(err instanceof Error ? err.message : "Failed to save purchase")
     } finally {
       setSaving(false)
     }
@@ -77,11 +79,12 @@ export function PurchasesView({ purchases: initial, vendors = [] }: PurchasesVie
 
   const handleDelete = async (id: string) => {
     setDeleting(id)
+    setError(null)
     try {
       await fetchFromAPI(`/api/purchases?id=${id}`, { method: "DELETE" })
       setPurchases((p) => p.filter((x) => x.id !== id))
     } catch (err) {
-      console.error("Delete failed:", err)
+      setError(err instanceof Error ? err.message : "Failed to delete purchase")
     } finally {
       setDeleting(null)
     }
@@ -116,6 +119,12 @@ export function PurchasesView({ purchases: initial, vendors = [] }: PurchasesVie
           Add Purchase
         </Button>
       </div>
+
+      {error && (
+        <div className="flex items-start gap-2 text-sm text-destructive p-3 bg-destructive/10 rounded-lg">
+          <span>{error}</span>
+        </div>
+      )}
 
       {/* Add Purchase Form */}
       {showForm && (
@@ -192,7 +201,7 @@ export function PurchasesView({ purchases: initial, vendors = [] }: PurchasesVie
               <Button onClick={handleSave} disabled={saving || !form.vendor_name || !form.invoice_date || !form.amount}>
                 {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving…</> : "Save Purchase"}
               </Button>
-              <Button variant="outline" onClick={() => { setShowForm(false); setForm(EMPTY_FORM) }}>Cancel</Button>
+              <Button variant="outline" onClick={() => { setShowForm(false); setForm(EMPTY_FORM); setError(null) }}>Cancel</Button>
             </div>
           </CardContent>
         </Card>

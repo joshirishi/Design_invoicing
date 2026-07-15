@@ -4,10 +4,11 @@ import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Check, X, Sparkles, Loader2, ArrowUpCircle, ArrowDownCircle, RefreshCw } from "lucide-react"
+import { Check, X, Sparkles, Loader2, ArrowUpCircle, ArrowDownCircle, RefreshCw, Search } from "lucide-react"
 import { fetchFromAPI } from "@/lib/fetch"
 import { useRouter } from "next/navigation"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
 import { CategoryBadge } from "@/components/category-badge"
 import { SuggestionsTab } from "@/components/suggestions-tab"
 
@@ -54,6 +55,14 @@ export function ReconciliationView({ payments }: { payments: Payment[] }) {
   const [selectedPayments, setSelectedPayments] = useState<Record<string, string>>({})
   const [isReconciling, setIsReconciling] = useState<string | null>(null)
   const [suggestedCount, setSuggestedCount] = useState<number | null>(null)
+  const [search, setSearch] = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
+
+  // Debounce search input ~300ms before it triggers a refetch
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => clearTimeout(t)
+  }, [search])
 
   useEffect(() => {
     fetch("/api/reconciliation-suggestions")
@@ -62,12 +71,13 @@ export function ReconciliationView({ payments }: { payments: Payment[] }) {
       .catch(() => setSuggestedCount(0))
   }, [])
 
-  const fetchPage = useCallback(async (tab: TabKey, pageOffset: number, append = false) => {
+  const fetchPage = useCallback(async (tab: TabKey, pageOffset: number, append = false, q = "") => {
     if (tab === "suggested") { setLoading(false); return }
     append ? setLoadingMore(true) : setLoading(true)
     setFetchError(null)
     try {
-      const res = await fetch(`/api/bank-transactions?type=${tab}&offset=${pageOffset}&limit=${PAGE}`)
+      const qParam = q ? `&q=${encodeURIComponent(q)}` : ""
+      const res = await fetch(`/api/bank-transactions?type=${tab}&offset=${pageOffset}&limit=${PAGE}${qParam}`)
       const json = await res.json()
       if (!res.ok) { setFetchError(json.error ?? "Failed to load transactions"); return }
       if (!append) {
@@ -89,8 +99,8 @@ export function ReconciliationView({ payments }: { payments: Payment[] }) {
   useEffect(() => {
     setOffset(0)
     setTransactions([])
-    fetchPage(activeTab, 0)
-  }, [activeTab, fetchPage])
+    fetchPage(activeTab, 0, false, debouncedSearch)
+  }, [activeTab, debouncedSearch, fetchPage])
 
   const handleReconcile = async (transactionId: string, paymentId: string) => {
     setIsReconciling(transactionId)
@@ -168,11 +178,24 @@ export function ReconciliationView({ payments }: { payments: Payment[] }) {
         ))}
       </div>
 
+      {/* Search — filters the current tab's list only, not Suggested */}
+      {activeTab !== "suggested" && (
+        <div className="relative max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            className="pl-9"
+            placeholder="Search by description…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+      )}
+
       {/* Error */}
       {fetchError && (
         <div className="flex items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           <span className="flex-1">{fetchError}</span>
-          <Button size="sm" variant="outline" onClick={() => fetchPage(activeTab, 0)}>
+          <Button size="sm" variant="outline" onClick={() => fetchPage(activeTab, 0, false, debouncedSearch)}>
             <RefreshCw className="h-3.5 w-3.5 mr-1" />Retry
           </Button>
         </div>
@@ -301,7 +324,7 @@ export function ReconciliationView({ payments }: { payments: Payment[] }) {
               <div className="mt-4 text-center">
                 <Button
                   variant="outline"
-                  onClick={() => fetchPage(activeTab, offset, true)}
+                  onClick={() => fetchPage(activeTab, offset, true, debouncedSearch)}
                   disabled={loadingMore}
                 >
                   {loadingMore ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Loading…</> : "Load More"}

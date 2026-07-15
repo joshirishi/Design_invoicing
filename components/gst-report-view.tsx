@@ -7,15 +7,17 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { fetchFromAPI } from "@/lib/fetch"
-import { Calendar, TrendingUp, TrendingDown, ArrowRight, Download, ExternalLink, Loader2 } from "lucide-react"
+import { Calendar, TrendingUp, TrendingDown, ArrowRight, Download, ExternalLink, Loader2, Info, X } from "lucide-react"
 
-interface OutputRow { month: string; total_gst_collected: string; total_cgst: string; total_sgst: string; total_invoiced: string; invoice_count: string }
+interface OutputRow { month: string; total_gst_collected: string; total_cgst: string; total_sgst: string; total_igst: string; total_invoiced: string; invoice_count: string }
 interface ReconRow { month: string; total_received: string; gst_on_received: string; payment_count: string }
+interface B2BRow { month: string; client_name: string | null; client_gstin: string | null; place_of_supply: string | null; taxable_value: string; cgst_amount: string; sgst_amount: string; igst_amount: string }
 interface Purchase { id: string; vendor_name: string; invoice_date: string; amount: string; cgst: string; sgst: string; igst: string }
 
 interface GSTReport {
   outputGST: OutputRow[]
   reconciledPayments: ReconRow[]
+  b2bBreakdown: B2BRow[]
   summary: { totalOutputGST: number; totalReconciledGST: number; unreconciledGST: number; reconciledPercentage: number }
 }
 
@@ -34,6 +36,16 @@ export function GSTReportView() {
   const [startDate, setStartDate] = useState(`${currentYear}-04-01`)
   const [endDate, setEndDate] = useState(`${currentYear}-03-31`)
   const [exporting, setExporting] = useState(false)
+  const [igstNoteDismissed, setIgstNoteDismissed] = useState(true)
+
+  useEffect(() => {
+    setIgstNoteDismissed(localStorage.getItem("gst-igst-note-dismissed") === "1")
+  }, [])
+
+  const dismissIgstNote = () => {
+    localStorage.setItem("gst-igst-note-dismissed", "1")
+    setIgstNoteDismissed(true)
+  }
 
   const fetchReport = async () => {
     setLoading(true)
@@ -58,19 +70,22 @@ export function GSTReportView() {
 
   const exportGSTR1 = () => {
     if (!report) return
-    // GSTR-1 JSON structure accepted by GST portal for bulk upload
+    // GSTR-1 JSON structure accepted by GST portal for bulk upload — one row per
+    // client × place-of-supply × month, using the real state each invoice was billed to.
     const gstr1 = {
       gstin: "", // Will be filled from profile
       fp: endDate.slice(0, 7).replace("-", ""), // MMYYYY
-      b2b: report.outputGST.map((row, i) => ({
-        pos: "27", // Intra-state (Maharashtra) — update as needed
+      b2b: report.b2bBreakdown.map((row) => ({
+        pos: row.place_of_supply || "",
         typ: "Regular",
-        sply_ty: "INTRA",
+        sply_ty: Number(row.igst_amount) > 0 ? "INTER" : "INTRA",
+        client_name: row.client_name,
+        client_gstin: row.client_gstin,
         month: fmtMonth(row.month),
-        txval: Number(row.total_invoiced) - Number(row.total_gst_collected),
-        cgst: Number(row.total_cgst),
-        sgst: Number(row.total_sgst),
-        igst: 0,
+        txval: Number(row.taxable_value),
+        cgst: Number(row.cgst_amount),
+        sgst: Number(row.sgst_amount),
+        igst: Number(row.igst_amount),
       })),
       _meta: { generated_at: new Date().toISOString(), invoice_count: report.outputGST.reduce((s, r) => s + Number(r.invoice_count), 0) },
     }
@@ -126,6 +141,20 @@ export function GSTReportView() {
           </div>
         </CardContent>
       </Card>
+
+      {/* One-time note: IGST is now included in the totals below */}
+      {!igstNoteDismissed && (
+        <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/50 px-4 py-3 text-sm">
+          <Info className="h-4 w-4 mt-0.5 shrink-0 text-blue-600 dark:text-blue-400" />
+          <p className="flex-1 text-blue-800 dark:text-blue-200">
+            Updated calculation — GST totals now correctly include IGST for inter-state invoices.
+            If you have inter-state clients, the numbers below may be higher than before.
+          </p>
+          <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-blue-600 dark:text-blue-400" onClick={dismissIgstNote}>
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
 
       {/* GSTR-3B Calculator */}
       <Card className="border-2 border-primary/20">

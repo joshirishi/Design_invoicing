@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
     const offset = Math.max(0, parseInt(searchParams.get("offset") ?? "0", 10))
     const limit  = Math.min(200, Math.max(1, parseInt(searchParams.get("limit") ?? "50", 10)))
     const type   = searchParams.get("type") ?? "credits"
+    const q      = searchParams.get("q")?.trim()
 
     // Build WHERE clause using safe numeric-only values (not user input)
     const oid = String(Math.floor(orgId))
@@ -26,6 +27,12 @@ export async function GET(request: NextRequest) {
       whereClause = `org_id = ${oid} AND reconciled = true`
     } else {
       whereClause = `org_id = ${oid} AND credit > 0 AND reconciled = false`
+    }
+
+    // Search filters the list only — counts (tab badges) stay unfiltered totals
+    if (q) {
+      const safeQ = q.replace(/'/g, "''")
+      whereClause += ` AND description ILIKE '%${safeQ}%'`
     }
 
     // Single-line rawSql — multi-line template literals cause silent failures via exec_sql RPC

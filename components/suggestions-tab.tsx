@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
-import { Loader2, Sparkles, Check, X, FileText, ShoppingCart, PencilLine } from "lucide-react"
+import { Loader2, Sparkles, Check, X, FileText, ShoppingCart, PencilLine, CheckCheck } from "lucide-react"
 import { fetchFromAPI } from "@/lib/fetch"
 import { useRouter } from "next/navigation"
 
@@ -135,6 +135,7 @@ export function SuggestionsTab() {
   const [editing, setEditing] = useState<Suggestion | null>(null)
   const [draft, setDraft] = useState<any>(null)
   const [working, setWorking] = useState<number | null>(null)
+  const [bulkWorking, setBulkWorking] = useState(false)
 
   const load = async () => {
     setLoading(true)
@@ -179,6 +180,35 @@ export function SuggestionsTab() {
     }
   }
 
+  // Bulk-accept every suggestion above 90% confidence, sequentially (avoids racing
+  // concurrent writes against the same org's data) — reports partial failures rather
+  // than swallowing them.
+  const acceptHighConfidence = async () => {
+    const highConfidence = suggestions.filter((s) => s.confidence > 90)
+    if (highConfidence.length === 0) return
+    setBulkWorking(true)
+    setError(null)
+    let succeeded = 0
+    const failures: string[] = []
+    for (const s of highConfidence) {
+      try {
+        await fetchFromAPI("/api/reconciliation-suggestions", {
+          method: "PATCH",
+          body: JSON.stringify({ id: s.id, payload: s.suggested_payload }),
+        })
+        succeeded++
+        setSuggestions((prev) => prev.filter((x) => x.id !== s.id))
+      } catch (err) {
+        failures.push(err instanceof Error ? err.message : `Suggestion #${s.id} failed`)
+      }
+    }
+    if (failures.length > 0) {
+      setError(`${succeeded} of ${highConfidence.length} accepted — ${failures.length} failed: ${failures.join("; ")}`)
+    }
+    router.refresh()
+    setBulkWorking(false)
+  }
+
   const dismiss = async (id: number) => {
     setWorking(id)
     try {
@@ -201,11 +231,18 @@ export function SuggestionsTab() {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between gap-2">
         <CardTitle className="flex items-center gap-2 text-base">
           <Sparkles className="h-5 w-5 text-indigo-500" />
           Suggested Invoices &amp; Purchases
         </CardTitle>
+        {suggestions.some((s) => s.confidence > 90) && (
+          <Button size="sm" variant="outline" onClick={acceptHighConfidence} disabled={bulkWorking}>
+            {bulkWorking
+              ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Accepting…</>
+              : <><CheckCheck className="h-3.5 w-3.5 mr-1.5" />Accept all &gt;90% confidence</>}
+          </Button>
+        )}
       </CardHeader>
       <CardContent>
         {error && <p className="text-sm text-destructive mb-3">{error}</p>}
