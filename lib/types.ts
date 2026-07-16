@@ -218,6 +218,35 @@ export interface TrialBalanceRow {
   credit: number
 }
 
+export interface Payee {
+  id: number
+  org_id: number
+  name: string
+  pan_no: string | null
+  payee_type: "employee" | "contractor"
+  email: string | null
+  phone: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface PayeePayment {
+  id: number
+  org_id: number
+  payee_id: number
+  amount: number          // gross, before TDS
+  tds_section: "194J" | "194C" | null
+  tds_rate: number
+  tds_amount: number
+  net_amount: number
+  payment_date: string
+  payment_method: string | null
+  reference_number: string | null
+  notes: string | null
+  created_at: string
+  payee?: Partial<Payee>
+}
+
 export interface Vendor {
   id: number
   org_id: number

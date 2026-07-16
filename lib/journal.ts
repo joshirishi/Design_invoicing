@@ -200,6 +200,48 @@ export async function postPurchaseJournalEntry(
   })
 }
 
+// ─── Payee payment → Salary/Contractor entry (Epic 18, US-69/71) ─────────────
+// Dr Salary & Wages (gross) — Cr TDS Payable (tax withheld, owed to govt) — Cr Bank (net paid)
+
+export async function postPayeePaymentJournalEntry(
+  orgId: number,
+  payment: {
+    id: number
+    payee_name: string
+    payment_date: string
+    amount: number
+    tds_amount: number
+    payment_method: string | null
+    reference_number: string | null
+  },
+): Promise<number> {
+  const bankLedgerName = payment.payment_method?.toLowerCase().includes("cash") ? "Cash in Hand" : "Bank Account"
+  const [salary, bank] = await Promise.all([
+    resolveAccountId(orgId, "Salary & Wages"),
+    resolveAccountId(orgId, bankLedgerName),
+  ])
+
+  const netAmount = payment.amount - (payment.tds_amount || 0)
+  const lines: JournalLineInput[] = [
+    { account_id: salary, debit: payment.amount, credit: 0 },
+  ]
+
+  if ((payment.tds_amount || 0) > 0) {
+    const tdsPayable = await resolveAccountId(orgId, "TDS Payable")
+    lines.push({ account_id: tdsPayable, debit: 0, credit: payment.tds_amount })
+  }
+
+  lines.push({ account_id: bank, debit: 0, credit: netAmount })
+
+  return postEntry(orgId, {
+    date: payment.payment_date,
+    narration: `Payment to ${payment.payee_name}${payment.reference_number ? ` — Ref: ${payment.reference_number}` : ""}`,
+    sourceType: "payment",
+    sourceId: payment.id,
+    lines,
+  })
+}
+
 // ─── Manual entry (US-51) ──────────────────────────────────────────────────
 
 export async function createManualJournalEntry(
