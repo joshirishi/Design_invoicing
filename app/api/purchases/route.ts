@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { sql, rawSql } from "@/lib/db"
 import { getCurrentOrgId } from "@/lib/get-org"
+import { postPurchaseJournalEntry } from "@/lib/journal"
 
 export async function GET() {
   try {
@@ -38,7 +39,29 @@ export async function POST(request: NextRequest) {
     const oid = String(Math.floor(orgId))
     await rawSql(`INSERT INTO purchases (org_id, vendor_id, vendor_name, vendor_gstin, invoice_date, invoice_number, description, amount, cgst, sgst, igst, total_with_tax, financial_year) VALUES (${oid}, ${vendor_id ? String(Number(vendor_id)) : "NULL"}, ${q(resolvedName)}, ${q(resolvedGstin)}, ${q(invoice_date)}, ${q(invoice_number || null)}, ${q(description || null)}, ${n(amount)}, ${n(cgst || 0)}, ${n(sgst || 0)}, ${n(igst || 0)}, ${n(total_with_tax)}, ${q(fy)})`)
     const fetched = await rawSql(`SELECT * FROM purchases WHERE org_id = ${oid} ORDER BY id DESC LIMIT 1`)
-    return NextResponse.json(fetched[0] ?? {})
+    const purchase = fetched[0] ?? {}
+
+    // Epic 12 (US-50): post to the double-entry ledger, best-effort.
+    if (purchase.id) {
+      try {
+        await postPurchaseJournalEntry(orgId, {
+          id: Number(purchase.id),
+          invoice_number: purchase.invoice_number,
+          invoice_date: purchase.invoice_date,
+          vendor_name: purchase.vendor_name,
+          description: purchase.description,
+          amount: Number(purchase.amount),
+          cgst: Number(purchase.cgst) || 0,
+          sgst: Number(purchase.sgst) || 0,
+          igst: Number(purchase.igst) || 0,
+          total_with_tax: Number(purchase.total_with_tax),
+        })
+      } catch (journalError: any) {
+        console.error("Journal posting failed for purchase", purchase.id, journalError.message)
+      }
+    }
+
+    return NextResponse.json(purchase)
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }

@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { sql, rawSql } from "@/lib/db"
 import { getCurrentOrgId } from "@/lib/get-org"
 import { getFinancialYear } from "@/lib/financial-year"
+import { postInvoiceJournalEntry } from "@/lib/journal"
 
 export const dynamic = "force-dynamic"
 
@@ -112,6 +113,26 @@ export async function POST(request: NextRequest) {
         const hsnLi = q(row.hsn_code || null)
         const igstAmt = n(row.igst_amount || 0)
         await rawSql(`INSERT INTO invoice_line_items (invoice_id, description, hsn_code, qty, rate, cgst_rate, sgst_rate, igst_rate, igst_amount, amount, sort_order) VALUES (${invoice.id}, ${descLi}, ${hsnLi}, ${n(row.quantity || 1)}, ${n(row.rate || 0)}, ${n(row.cgst_rate || 0)}, ${n(row.sgst_rate || 0)}, ${n(row.igst_rate || 0)}, ${igstAmt}, ${n(row.amount || 0)}, ${i})`)
+      }
+    }
+
+    // Epic 12 (US-50): post to the double-entry ledger. Best-effort — a posting
+    // failure (e.g. Chart of Accounts not seeded yet) must not block invoice save.
+    if (invoice.id) {
+      try {
+        await postInvoiceJournalEntry(orgId, {
+          id: Number(invoice.id),
+          invoice_number: invoice.invoice_number,
+          invoice_date: invoice.invoice_date,
+          description: invoice.description,
+          amount_before_tax: Number(invoice.amount_before_tax),
+          cgst_amount: Number(invoice.cgst_amount),
+          sgst_amount: Number(invoice.sgst_amount),
+          igst_amount: Number(invoice.igst_amount),
+          total_amount: Number(invoice.total_amount),
+        })
+      } catch (journalError: any) {
+        console.error("Journal posting failed for invoice", invoice.id, journalError.message)
       }
     }
 

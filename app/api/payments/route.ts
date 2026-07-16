@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 import { getCurrentOrgId } from "@/lib/get-org"
+import { postPaymentJournalEntry } from "@/lib/journal"
 
 export async function GET(request: NextRequest) {
   try {
@@ -49,7 +50,25 @@ export async function POST(request: NextRequest) {
       )
       RETURNING *
     `
-    return NextResponse.json(result[0])
+    const payment = result[0]
+
+    // Epic 12 (US-50): post to the double-entry ledger, best-effort.
+    if (payment?.id) {
+      try {
+        await postPaymentJournalEntry(orgId, {
+          id: Number(payment.id),
+          payment_date: payment.payment_date,
+          amount: Number(payment.amount),
+          tds_amount: Number(payment.tds_amount) || 0,
+          payment_method: payment.payment_method,
+          reference_number: payment.reference_number,
+        })
+      } catch (journalError: any) {
+        console.error("Journal posting failed for payment", payment.id, journalError.message)
+      }
+    }
+
+    return NextResponse.json(payment)
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }

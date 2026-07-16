@@ -188,6 +188,36 @@ export interface ChartOfAccount {
   updated_at: string
 }
 
+export interface JournalEntryLine {
+  id: number
+  entry_id: number
+  account_id: number
+  debit: number
+  credit: number
+  account_name?: string       // joined from chart_of_accounts
+  account_type?: ChartOfAccount["type"]
+}
+
+export interface JournalEntry {
+  id: number
+  org_id: number
+  entry_date: string
+  narration: string | null
+  source_type: "invoice" | "payment" | "purchase" | "manual"
+  source_id: number | null
+  created_at: string
+  lines?: JournalEntryLine[]
+  total?: number               // sum of debit (== sum of credit) across lines
+}
+
+export interface TrialBalanceRow {
+  account_id: number
+  account_name: string
+  account_type: ChartOfAccount["type"]
+  debit: number
+  credit: number
+}
+
 export interface Vendor {
   id: number
   org_id: number
