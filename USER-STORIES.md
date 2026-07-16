@@ -254,9 +254,9 @@
 
 | ID | As a user, I want to… | So that… | Status |
 |---|---|---|---|
-| US-69 | Add a payee record (name, PAN, payee type: employee or contractor) | I can track who I pay for services, distinct from vendors I buy goods/services from | 🔲 Not built |
-| US-70 | Record a payment to a contractor/freelancer with TDS deducted under the correct section (194J professional services / 194C contract work) | I'm compliant on the *outbound* TDS I'm responsible for deducting, not just tracking TDS deducted from me | 🔲 Not built (depends on US-69) |
-| US-71 | Generate Form 16A-ready data per contractor per quarter | I can issue TDS certificates without manually compiling payment history | 🔲 Not built |
+| US-69 | Add a payee record (name, PAN, payee type: employee or contractor) | I can track who I pay for services, distinct from vendors I buy goods/services from | ✅ Built (`/dashboard/payees`, `components/payees-view.tsx`) |
+| US-70 | Record a payment to a contractor/freelancer with TDS deducted under the correct section (194J professional services / 194C contract work) | I'm compliant on the *outbound* TDS I'm responsible for deducting, not just tracking TDS deducted from me | ✅ Built — inline 194J/194C guidance, live-computed net payable, posts to the ledger via `postPayeePaymentJournalEntry` |
+| US-71 | Generate Form 16A-ready data per contractor per quarter | I can issue TDS certificates without manually compiling payment history | ⚠️ Partial — quarterly TDS summary + CSV export built; the actual Form 16A statutory PDF template is a separate follow-up story (Priya's feasibility scope cut) |
 
 **Phase B — Formal payroll**
 
@@ -306,8 +306,10 @@
 
 ---
 
-*Last updated: July 15, 2026 — reframed around the "intelligent CA for MSME business owners"
-product bar (dissect → reconcile → filing-ready), Epics 12–19 added (double-entry ledger, GST
-filing readiness, TDS tracking, financial statements, CA collaboration mode, multi-account &
-investment ingestion, employee/contractor payments, multi-tenant SaaS foundation), Epic 8/9
-status caveats added to flag derived-view vs real-ledger gap.*
+*Last updated: July 16, 2026 — Epic 12 (double-entry ledger) and Epic 18 Phase A
+(contractor/freelancer payments) shipped; USER-STORIES.md originally reframed July 15, 2026
+around the "intelligent CA for MSME business owners" product bar (dissect → reconcile →
+filing-ready), Epics 12–19 added (double-entry ledger, GST filing readiness, TDS tracking,
+financial statements, CA collaboration mode, multi-account & investment ingestion,
+employee/contractor payments, multi-tenant SaaS foundation), Epic 8/9 status caveats added to
+flag derived-view vs real-ledger gap.*
