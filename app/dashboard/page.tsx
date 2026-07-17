@@ -1,6 +1,6 @@
 import { rawSql } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { FileText, Users, DollarSign, AlertCircle, TrendingUp, Plus, Receipt } from "lucide-react"
+import { FileText, Users, DollarSign, AlertCircle, TrendingUp, Plus, Receipt, CheckCircle2, AlertTriangle, ScrollText, LineChart, UserCog } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { RevenueChart } from "@/components/revenue-chart"
 import { RecentInvoices } from "@/components/recent-invoices"
@@ -8,6 +8,8 @@ import { InvoiceStatusChart } from "@/components/invoice-status-chart"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import Link from "next/link"
 import { getCurrentOrgId } from "@/lib/get-org"
+import { getTrialBalance } from "@/lib/journal"
+import { getFinancialYear } from "@/lib/financial-year"
 
 export const dynamic = "force-dynamic"
 
@@ -21,6 +23,19 @@ export default async function DashboardPage() {
       rawSql(`SELECT amount, payment_date FROM payments WHERE org_id = ${oid}`),
       rawSql(`SELECT COALESCE(SUM(cgst_amount + sgst_amount + igst_amount), 0) AS current_month_gst FROM invoices WHERE org_id = ${oid} AND status != 'draft' AND DATE_TRUNC('month', invoice_date) = DATE_TRUNC('month', CURRENT_DATE)`),
     ])
+
+    // Books Status — best-effort, non-blocking: a failure here shouldn't take down the dashboard.
+    const currentFy = getFinancialYear(new Date())
+    const [trialBalanceRows, capitalGainsResult, tdsPayableResult] = await Promise.all([
+      getTrialBalance(orgId).catch(() => []),
+      rawSql(`SELECT COALESCE(SUM(gain_amount), 0) AS ytd_gain FROM capital_gains_entries WHERE org_id = ${oid} AND financial_year = '${currentFy}'`).catch(() => [{ ytd_gain: 0 }]),
+      rawSql(`SELECT COALESCE(SUM(l.credit), 0) - COALESCE(SUM(l.debit), 0) AS payable FROM journal_entry_lines l JOIN chart_of_accounts a ON a.id = l.account_id JOIN journal_entries e ON e.id = l.entry_id WHERE e.org_id = ${oid} AND a.name = 'TDS Payable'`).catch(() => [{ payable: 0 }]),
+    ])
+    const booksTotalDebit = trialBalanceRows.reduce((s, r) => s + Number(r.debit || 0), 0)
+    const booksTotalCredit = trialBalanceRows.reduce((s, r) => s + Number(r.credit || 0), 0)
+    const booksBalanced = trialBalanceRows.length > 0 && Math.abs(booksTotalDebit - booksTotalCredit) < 0.01
+    const capitalGainsYtd = Number(capitalGainsResult[0]?.ytd_gain || 0)
+    const tdsPayable = Number(tdsPayableResult[0]?.payable || 0)
 
     // Only block on zero invoices — payments/clients can be empty and we still show the dashboard
     const needsSetup = invoicesResult.length === 0
@@ -204,6 +219,58 @@ export default async function DashboardPage() {
                   Check GST Report
                 </Button>
               </Link>
+            </CardContent>
+          </Card>
+
+          {/* Books Status — surfaces Epic 12/17/18 (ledger, capital gains, TDS payable)
+              in one glance instead of requiring three separate page visits */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Books Status</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <Link
+                  href="/dashboard/ledger"
+                  className="flex items-center gap-2.5 rounded-md border px-3 py-2.5 hover:bg-muted/40 transition-colors"
+                >
+                  {trialBalanceRows.length === 0 ? (
+                    <ScrollText className="h-4 w-4 text-muted-foreground shrink-0" />
+                  ) : booksBalanced ? (
+                    <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+                  ) : (
+                    <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground">Ledger</p>
+                    <p className="text-sm font-semibold truncate">
+                      {trialBalanceRows.length === 0 ? "No entries yet" : booksBalanced ? "Balanced" : "Off — needs review"}
+                    </p>
+                  </div>
+                </Link>
+
+                <Link
+                  href="/dashboard/capital-gains"
+                  className="flex items-center gap-2.5 rounded-md border px-3 py-2.5 hover:bg-muted/40 transition-colors"
+                >
+                  <LineChart className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground">Capital Gains (FY{currentFy})</p>
+                    <p className="text-sm font-semibold truncate">₹{capitalGainsYtd.toLocaleString("en-IN")}</p>
+                  </div>
+                </Link>
+
+                <Link
+                  href="/dashboard/payees"
+                  className="flex items-center gap-2.5 rounded-md border px-3 py-2.5 hover:bg-muted/40 transition-colors"
+                >
+                  <UserCog className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground">TDS Payable</p>
+                    <p className="text-sm font-semibold truncate">₹{tdsPayable.toLocaleString("en-IN")}</p>
+                  </div>
+                </Link>
+              </div>
             </CardContent>
           </Card>
 
