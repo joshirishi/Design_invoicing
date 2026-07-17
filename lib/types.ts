@@ -259,6 +259,22 @@ export interface PayeePayment {
   payee?: Partial<Payee>
 }
 
+export interface CapitalGainEntry {
+  id: number
+  org_id: number
+  account_id: number | null
+  symbol: string
+  quantity: number | null
+  cost_basis: number
+  sale_value: number
+  gain_amount: number
+  gain_type: "STCG" | "LTCG"
+  financial_year: string | null
+  upload_batch_id: string | null
+  linked_bank_transaction_id: number | null
+  created_at: string
+}
+
 export interface Vendor {
   id: number
   org_id: number

@@ -242,6 +242,55 @@ export async function postPayeePaymentJournalEntry(
   })
 }
 
+// ─── Capital gain → STCG/LTCG entry (Epic 17 Pass 2) ──────────────────────────
+// Posts only the realized gain/loss (not the full sale proceeds — there is no
+// investment-asset sub-ledger tracking cost basis as a balance-sheet item in
+// this pass), so the P&L impact is correct without needing full trade-level
+// asset accounting. Dr the demat/bank account holding the proceeds if known,
+// otherwise Dr a generic "Bank Account" — Cr the matching capital-gains head.
+
+export async function postCapitalGainJournalEntry(
+  orgId: number,
+  gain: {
+    id: number
+    symbol: string
+    gain_amount: number
+    gain_type: "STCG" | "LTCG"
+    financial_year: string | null
+  },
+): Promise<number> {
+  if (gain.gain_amount === 0) {
+    throw new Error("Zero-gain entries are not posted to the ledger")
+  }
+
+  const incomeAccountName = gain.gain_type === "STCG" ? "Short-Term Capital Gains" : "Long-Term Capital Gains"
+  const [income, bank] = await Promise.all([
+    resolveAccountId(orgId, incomeAccountName),
+    resolveAccountId(orgId, "Bank Account"),
+  ])
+
+  const amount = Math.abs(gain.gain_amount)
+  const isProfit = gain.gain_amount > 0
+
+  const lines: JournalLineInput[] = isProfit
+    ? [
+        { account_id: bank, debit: amount, credit: 0 },
+        { account_id: income, debit: 0, credit: amount },
+      ]
+    : [
+        { account_id: income, debit: amount, credit: 0 },
+        { account_id: bank, debit: 0, credit: amount },
+      ]
+
+  return postEntry(orgId, {
+    date: gain.financial_year ? `${gain.financial_year.slice(0, 4)}-04-01` : new Date().toISOString().split("T")[0],
+    narration: `${gain.gain_type} on ${gain.symbol}${gain.financial_year ? ` (FY${gain.financial_year})` : ""}`,
+    sourceType: "manual",
+    sourceId: gain.id,
+    lines,
+  })
+}
+
 // ─── Manual entry (US-51) ──────────────────────────────────────────────────
 
 export async function createManualJournalEntry(
