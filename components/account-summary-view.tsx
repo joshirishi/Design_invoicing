@@ -249,7 +249,7 @@ export default function AccountSummaryView({
             Payee TDS Summary panel below (see components/payees-view.tsx for real payees) */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
           <h2 className="font-semibold text-gray-800 mb-1">Top Counterparties</h2>
-          <p className="text-xs text-gray-400 mb-3">By bank transaction activity, not linked to your Payee records</p>
+          <p className="text-xs text-gray-400 mb-3">By bank transaction activity — payments linked to a Payee record show up in TDS Summary below instead</p>
           {topCounterparties.length > 0 ? (
             <div className="space-y-2">
               {topCounterparties.map((p, i) => (

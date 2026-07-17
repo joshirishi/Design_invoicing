@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, Pencil, Trash2, UserCog, Search, IndianRupee, Download } from "lucide-react"
+import { Plus, Pencil, Trash2, UserCog, Search, IndianRupee, Download, Link2 } from "lucide-react"
 import type { Payee, PayeePayment } from "@/lib/types"
 
 const TYPE_COLORS: Record<string, string> = {
@@ -79,6 +79,36 @@ export function PayeesView({
     return Array.from(set).sort().reverse()
   }, [payments])
   const [selectedQuarter, setSelectedQuarter] = useState<string>(quarterOptions[0] ?? "")
+
+  // Recent Payments — link a payee payment to the bank transaction it corresponds
+  // to, so it isn't double-counted as both raw bank activity and a payee record.
+  const [linkingPaymentId, setLinkingPaymentId] = useState<number | null>(null)
+  const [unmatchedTxns, setUnmatchedTxns] = useState<{ id: string; transaction_date: string; description: string; debit: number | null }[] | null>(null)
+
+  async function openLinkPayment(paymentId: number) {
+    setLinkingPaymentId(paymentId)
+    setUnmatchedTxns(null)
+    try {
+      const res = await fetch("/api/bank-transactions?type=debits&limit=50")
+      const json = await res.json()
+      setUnmatchedTxns(json.transactions ?? [])
+    } catch {
+      setUnmatchedTxns([])
+    }
+  }
+
+  async function handleLinkPayment(paymentId: number, txnId: string | null) {
+    try {
+      const updated = await fetchFromAPI("/api/payee-payments", {
+        method: "PUT",
+        body: JSON.stringify({ id: paymentId, linked_bank_transaction_id: txnId }),
+      })
+      setPayments((prev) => prev.map((p) => (p.id === updated.id ? updated : p)))
+      setLinkingPaymentId(null)
+    } catch (e: any) {
+      alert(e.message)
+    }
+  }
 
   const filtered = payees.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()))
 
@@ -220,6 +250,7 @@ export function PayeesView({
       <Tabs defaultValue="payees">
         <TabsList>
           <TabsTrigger value="payees">Payees</TabsTrigger>
+          <TabsTrigger value="payments">Payments</TabsTrigger>
           <TabsTrigger value="tds-certificates">TDS Certificates</TabsTrigger>
         </TabsList>
 
@@ -285,6 +316,69 @@ export function PayeesView({
               ))}
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="payments" className="pt-4 space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Recent Payments</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              {payments.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4">No payments recorded yet.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-left text-xs text-muted-foreground">
+                        <th className="py-2 pr-2 font-medium">Date</th>
+                        <th className="py-2 pr-2 font-medium">Payee</th>
+                        <th className="py-2 pr-2 font-medium text-right">Amount</th>
+                        <th className="py-2 pr-2 font-medium text-right">TDS</th>
+                        <th className="py-2 pl-2 font-medium">Bank Link</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {payments.map((p) => (
+                        <tr key={p.id}>
+                          <td className="py-2 pr-2 whitespace-nowrap text-muted-foreground">{p.payment_date}</td>
+                          <td className="py-2 pr-2 font-medium">{payees.find((py) => py.id === p.payee_id)?.name ?? "—"}</td>
+                          <td className="py-2 pr-2 text-right tabular-nums">₹{formatINR(p.amount)}</td>
+                          <td className="py-2 pr-2 text-right tabular-nums">{p.tds_amount > 0 ? `₹${formatINR(p.tds_amount)}` : "—"}</td>
+                          <td className="py-2 pl-2">
+                            {p.linked_bank_transaction_id ? (
+                              <Badge variant="secondary" className="text-xs font-normal">Linked</Badge>
+                            ) : linkingPaymentId === p.id ? (
+                              <Select onValueChange={(v) => handleLinkPayment(p.id, v)}>
+                                <SelectTrigger className="h-7 w-56 text-xs"><SelectValue placeholder="Select transaction…" /></SelectTrigger>
+                                <SelectContent>
+                                  {unmatchedTxns === null ? (
+                                    <SelectItem value="__loading__" disabled>Loading…</SelectItem>
+                                  ) : unmatchedTxns.length === 0 ? (
+                                    <SelectItem value="__none__" disabled>No unmatched debits</SelectItem>
+                                  ) : (
+                                    unmatchedTxns.map((t) => (
+                                      <SelectItem key={t.id} value={t.id}>
+                                        {t.transaction_date} · ₹{formatINR(t.debit ?? 0)} · {t.description.slice(0, 30)}
+                                      </SelectItem>
+                                    ))
+                                  )}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openLinkPayment(p.id)}>
+                                <Link2 className="h-3 w-3 mr-1" />Link
+                              </Button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="tds-certificates" className="pt-4 space-y-4">

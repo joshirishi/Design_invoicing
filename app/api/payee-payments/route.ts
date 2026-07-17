@@ -78,3 +78,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
+
+// PUT — link (or unlink) a payee payment to the bank transaction it corresponds
+// to, so it isn't double-counted as both raw bank activity and a payee record.
+export async function PUT(request: NextRequest) {
+  try {
+    const orgId = await getCurrentOrgId()
+    const oid = String(Math.floor(orgId))
+    const { id, linked_bank_transaction_id } = await request.json()
+    if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 })
+
+    const linkVal = linked_bank_transaction_id ? String(Number(linked_bank_transaction_id)) : "NULL"
+    await rawSql(`UPDATE payee_payments SET linked_bank_transaction_id = ${linkVal} WHERE id = ${Number(id)} AND org_id = ${oid}`)
+    const fetched = await rawSql(
+      `SELECT pp.*, p.name AS payee_name FROM payee_payments pp JOIN payees p ON p.id = pp.payee_id WHERE pp.id = ${Number(id)} AND pp.org_id = ${oid}`,
+    )
+    if (!fetched[0]) return NextResponse.json({ error: "Payment not found" }, { status: 404 })
+    return NextResponse.json(fetched[0])
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}

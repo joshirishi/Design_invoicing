@@ -255,6 +255,7 @@ export interface PayeePayment {
   payment_method: string | null
   reference_number: string | null
   notes: string | null
+  linked_bank_transaction_id: number | null
   created_at: string
   payee?: Partial<Payee>
 }
