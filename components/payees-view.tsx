@@ -83,17 +83,17 @@ export function PayeesView({
   // Recent Payments — link a payee payment to the bank transaction it corresponds
   // to, so it isn't double-counted as both raw bank activity and a payee record.
   const [linkingPaymentId, setLinkingPaymentId] = useState<number | null>(null)
-  const [unmatchedTxns, setUnmatchedTxns] = useState<{ id: string; transaction_date: string; description: string; debit: number | null }[] | null>(null)
+  const [unmatchedTxns, setUnmatchedTxns] = useState<{ id: string; transaction_date: string; description: string; debit: number | null; resolved_name: string | null }[] | null>(null)
 
   // Suggested links — best-guess matches, never auto-applied, one click to confirm.
-  const [suggestions, setSuggestions] = useState<Map<number, { transactionId: string; confidence: number; transaction: { transaction_date: string; description: string; debit: number } }>>(new Map())
+  const [suggestions, setSuggestions] = useState<Map<number, { transactionId: string; confidence: number; transaction: { transaction_date: string; description: string; debit: number; resolved_name: string | null } }>>(new Map())
   const [confirmingId, setConfirmingId] = useState<number | null>(null)
   const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<number>>(new Set())
 
   useEffect(() => {
     fetch("/api/payee-payments/suggestions")
       .then((r) => r.json())
-      .then((rows: { paymentId: number; transactionId: string; confidence: number; transaction: { transaction_date: string; description: string; debit: number } }[]) => {
+      .then((rows: { paymentId: number; transactionId: string; confidence: number; transaction: { transaction_date: string; description: string; debit: number; resolved_name: string | null } }[]) => {
         if (!Array.isArray(rows)) return
         setSuggestions(new Map(rows.map((r) => [r.paymentId, { transactionId: r.transactionId, confidence: r.confidence, transaction: r.transaction }])))
       })
@@ -376,6 +376,9 @@ export function PayeesView({
                               <div className="flex items-center gap-1.5">
                                 <div className="text-xs">
                                   <span className="text-muted-foreground">Suggested: </span>
+                                  {suggestions.get(p.id)!.transaction.resolved_name && (
+                                    <span className="font-medium text-indigo-600 dark:text-indigo-400">{suggestions.get(p.id)!.transaction.resolved_name} · </span>
+                                  )}
                                   {suggestions.get(p.id)!.transaction.transaction_date} · ₹{formatINR(suggestions.get(p.id)!.transaction.debit)}
                                 </div>
                                 <Button
@@ -407,7 +410,7 @@ export function PayeesView({
                                   ) : (
                                     unmatchedTxns.map((t) => (
                                       <SelectItem key={t.id} value={t.id}>
-                                        {t.transaction_date} · ₹{formatINR(t.debit ?? 0)} · {t.description.slice(0, 30)}
+                                        {t.transaction_date} · ₹{formatINR(t.debit ?? 0)} · {t.resolved_name ? `${t.resolved_name} (${t.description.slice(0, 20)})` : t.description.slice(0, 30)}
                                       </SelectItem>
                                     ))
                                   )}

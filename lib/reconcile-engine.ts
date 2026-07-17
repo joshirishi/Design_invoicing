@@ -371,6 +371,38 @@ export async function suggestPayeePaymentLinks(orgId: number): Promise<PayeePaym
   return suggestions
 }
 
+// ── Counterparty name resolution (UPI contacts follow-up) ───────────────────
+// Resolves a terse bank description to a real name using an uploaded UPI app
+// statement's VPA→name lookup (see lib/parsers/upi-statement.ts). Bank UPI
+// descriptions don't put the VPA in a fixed segment position (see the header
+// comment in lib/parsers/bank-signal.ts), so this checks the VPA's local-part
+// (before @) as a substring anywhere in the description, then falls back to a
+// normalized display-name substring match.
+
+export interface UpiContact {
+  vpa: string | null
+  display_name: string
+}
+
+export function resolveCounterpartyName(description: string, contacts: UpiContact[]): string | null {
+  const normDesc = normalizeForMatch(description)
+  if (!normDesc) return null
+
+  for (const c of contacts) {
+    if (c.vpa) {
+      const localPart = normalizeForMatch(c.vpa.split("@")[0])
+      if (localPart.length >= 4 && normDesc.includes(localPart)) return c.display_name
+    }
+  }
+
+  for (const c of contacts) {
+    const normName = normalizeForMatch(c.display_name)
+    if (normName.length >= 3 && normDesc.includes(normName)) return c.display_name
+  }
+
+  return null
+}
+
 // Fetch unreconciled summary for notifications
 export async function getUnreconciledSummary(orgId: number) {
   const [unreconciled, overdueInvoices] = await Promise.all([

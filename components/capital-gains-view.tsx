@@ -19,6 +19,7 @@ interface UnmatchedTxn {
   transaction_date: string
   description: string
   credit: number | null
+  resolved_name: string | null
 }
 
 function formatINR(n: number): string {
@@ -234,7 +235,7 @@ export function CapitalGainsView({
                               ) : (
                                 unmatchedTxns.map((t) => (
                                   <SelectItem key={t.id} value={t.id}>
-                                    {t.transaction_date} · ₹{formatINR(t.credit ?? 0)} · {t.description.slice(0, 30)}
+                                    {t.transaction_date} · ₹{formatINR(t.credit ?? 0)} · {t.resolved_name ? `${t.resolved_name} (${t.description.slice(0, 20)})` : t.description.slice(0, 30)}
                                   </SelectItem>
                                 ))
                               )}

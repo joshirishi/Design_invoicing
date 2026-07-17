@@ -256,7 +256,16 @@ export default function AccountSummaryView({
                 <div key={i} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="text-xs font-bold text-gray-400 w-5">{i + 1}</span>
-                    <span className="text-sm text-gray-700 truncate max-w-xs">{String(p.description)}</span>
+                    <div className="min-w-0">
+                      {p.resolved_name ? (
+                        <>
+                          <p className="text-sm text-gray-700 truncate max-w-xs">{String(p.resolved_name)}</p>
+                          <p className="text-xs text-gray-400 truncate max-w-xs">{String(p.description)}</p>
+                        </>
+                      ) : (
+                        <p className="text-sm text-gray-700 truncate max-w-xs">{String(p.description)}</p>
+                      )}
+                    </div>
                   </div>
                   <div className="text-right flex-shrink-0 ml-4">
                     <p className="text-sm font-semibold text-rose-600">{fmt(p.total_spent as number)}</p>

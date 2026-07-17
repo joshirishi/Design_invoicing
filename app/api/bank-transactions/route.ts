@@ -2,6 +2,7 @@ import { sql, rawSql } from "@/lib/db"
 import { type NextRequest, NextResponse } from "next/server"
 import { getCurrentOrgId } from "@/lib/get-org"
 import { categorize, fetchRules } from "@/lib/categorize"
+import { resolveCounterpartyName } from "@/lib/reconcile-engine"
 
 export const dynamic = "force-dynamic"
 
@@ -43,10 +44,18 @@ export async function GET(request: NextRequest) {
     // Single-line rawSql — multi-line template literals cause silent failures via exec_sql RPC
     const transactions = await rawSql(`SELECT id, transaction_date, description, reference_number, debit, credit, balance, reconciled, category, category_source, category_confidence, ledger_id, account_id, payment_id, purchase_id FROM bank_transactions WHERE ${whereClause} ORDER BY transaction_date DESC LIMIT ${lim} OFFSET ${off}`)
 
+    // Resolve counterparty names from any uploaded UPI app statements (see
+    // lib/parsers/upi-statement.ts) — display-only, no transactions created.
+    const upiContacts = await sql`SELECT vpa, display_name FROM upi_contacts WHERE org_id = ${orgId}`.catch(() => [])
+    const transactionsResolved = transactions.map((t) => ({
+      ...t,
+      resolved_name: upiContacts.length > 0 ? resolveCounterpartyName(String(t.description ?? ""), upiContacts as any) : null,
+    }))
+
     const counts = await rawSql(`SELECT COUNT(*) FILTER (WHERE credit > 0 AND reconciled = false) AS credits, COUNT(*) FILTER (WHERE debit > 0 AND reconciled = false) AS debits, COUNT(*) FILTER (WHERE reconciled = true) AS reconciled FROM bank_transactions WHERE org_id = ${oid}`)
 
     return NextResponse.json({
-      transactions,
+      transactions: transactionsResolved,
       counts: counts[0] ?? { credits: 0, debits: 0, reconciled: 0 },
       offset,
       limit,

@@ -1,6 +1,7 @@
 import { BankStatementUpload } from "@/components/bank-statement-upload"
 import { ReconciliationView } from "@/components/reconciliation-view"
 import { BackfillButton } from "@/components/backfill-button"
+import { UpiContactsUpload } from "@/components/upi-contacts-upload"
 import { sql } from "@/lib/db"
 import { getCurrentOrgId } from "@/lib/get-org"
 
@@ -46,6 +47,7 @@ export default async function ReconciliationPage() {
       </div>
 
       <BankStatementUpload accounts={accounts as any} />
+      <UpiContactsUpload />
 
       {/* ReconciliationView fetches transactions client-side with pagination */}
       <ReconciliationView payments={payments as never[]} accounts={accounts as any} />

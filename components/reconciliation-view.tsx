@@ -27,6 +27,7 @@ interface BankTxn {
   ledger_id: number | null
   payment_id: string | null
   purchase_id: string | null
+  resolved_name: string | null
 }
 
 interface Payment {
@@ -263,6 +264,9 @@ export function ReconciliationView({ payments, accounts = [] }: { payments: Paym
                   return (
                     <div key={txn.id} className="flex items-start gap-3 p-4 border rounded-lg">
                       <div className="flex-1 space-y-1 min-w-0">
+                        {txn.resolved_name && (
+                          <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400">{txn.resolved_name}</p>
+                        )}
                         <p className="font-medium truncate text-sm">{txn.description}</p>
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-xs text-muted-foreground">

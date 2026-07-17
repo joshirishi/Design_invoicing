@@ -1,8 +1,9 @@
 export const dynamic = "force-dynamic"
 
-import { rawSql } from "@/lib/db"
+import { rawSql, sql } from "@/lib/db"
 import { getCurrentOrgId } from "@/lib/get-org"
 import { getFinancialYear } from "@/lib/financial-year"
+import { resolveCounterpartyName } from "@/lib/reconcile-engine"
 import AccountSummaryView from "@/components/account-summary-view"
 
 export default async function AccountSummaryPage() {
@@ -30,13 +31,20 @@ export default async function AccountSummaryPage() {
       rawSql(`SELECT COALESCE(SUM(gain_amount), 0) AS ytd_gain FROM capital_gains_entries WHERE org_id = ${oid} AND financial_year = '${currentFy}'`),
     ])
 
+    // Resolve counterparty names from any uploaded UPI app statements — display-only.
+    const upiContacts = await sql`SELECT vpa, display_name FROM upi_contacts WHERE org_id = ${orgId}`.catch(() => [])
+    const topCounterpartiesResolved = topCounterparties.map((c) => ({
+      ...c,
+      resolved_name: upiContacts.length > 0 ? resolveCounterpartyName(String(c.description ?? ""), upiContacts as any) : null,
+    }))
+
     return (
       <AccountSummaryView
         monthly={monthly}
         byCategory={byCategory}
         invoiceSummary={invoiceRows[0] || {}}
         purchaseSummary={purchaseRows[0] || {}}
-        topCounterparties={topCounterparties}
+        topCounterparties={topCounterpartiesResolved}
         personalAccountCount={Number(personalAccountCount[0]?.count || 0)}
         payeeTds={payeeTds}
         capitalGainsFy={Number(capitalGainsFy[0]?.ytd_gain || 0)}
