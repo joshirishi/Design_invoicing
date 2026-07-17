@@ -234,12 +234,12 @@
 
 | ID | As a user, I want to… | So that… | Status |
 |---|---|---|---|
-| US-63 | Add multiple named bank accounts (e.g. "Business Current — HDFC", "Personal Savings — ICICI") instead of the single implicit account today | I can keep statements from different accounts separate instead of them pooling into one undifferentiated list | 🔲 Not built |
-| US-64 | Tag each bank statement upload to a specific account | Transactions are traceable to the account they actually happened in | 🔲 Not built (depends on US-63) |
-| US-65 | Mark an account as personal or business at the account level | Personal-account transactions are segregated from GST/business P&L by default, not guessed at per-transaction | 🔲 Not built — extends the existing "personal P2P transfer" categorization already noted in [[knowledge-bank/Home]] (household-helper UPI transfers) |
-| US-66 | Upload a demat/broker statement or the broker's own Tax P&L (STCG/LTCG) export | My investment activity is captured without me re-deriving capital gains by hand | 🔲 Not built |
-| US-67 | See a capital-gains summary (STCG/LTCG) per financial year, kept as its own ledger head separate from business Chart of Accounts | My CA gets a clean capital-gains figure under the correct ITR schedule, not mixed into business revenue | 🔲 Not built (depends on US-66) |
-| US-68 | Reconcile a broker payout landing in my bank account against the corresponding capital-gains entry | A "money came in" bank credit is traceably linked to why, instead of showing up as unexplained reconciliation noise | 🔲 Not built (depends on US-63–US-67; reuses the matching pattern from Epic 5) |
+| US-63 | Add multiple named bank accounts (e.g. "Business Current — HDFC", "Personal Savings — ICICI") instead of the single implicit account today | I can keep statements from different accounts separate instead of them pooling into one undifferentiated list | ✅ Built (`Settings > Accounts`, `bank_accounts` table, backfilled onto all 1,250 existing transactions) |
+| US-64 | Tag each bank statement upload to a specific account | Transactions are traceable to the account they actually happened in | ✅ Built — upload flow's account selector is invisible until a 2nd account exists (Raj's arbitration) |
+| US-65 | Mark an account as personal or business at the account level | Personal-account transactions are segregated from GST/business P&L by default, not guessed at per-transaction | ✅ Built — Account Summary excludes `is_personal` accounts from business rollups |
+| US-66 | Upload a demat/broker statement or the broker's own Tax P&L (STCG/LTCG) export | My investment activity is captured without me re-deriving capital gains by hand | ✅ Built (`/dashboard/capital-gains`, `lib/parsers/tax-pnl.ts`, verified against a real Zerodha export) |
+| US-67 | See a capital-gains summary (STCG/LTCG) per financial year, kept as its own ledger head separate from business Chart of Accounts | My CA gets a clean capital-gains figure under the correct ITR schedule, not mixed into business revenue | ✅ Built — seeded "Short-Term/Long-Term Capital Gains" income accounts, posts via `postCapitalGainJournalEntry` |
+| US-68 | Reconcile a broker payout landing in my bank account against the corresponding capital-gains entry | A "money came in" bank credit is traceably linked to why, instead of showing up as unexplained reconciliation noise | ⚠️ Partial — manual "Link to bank transaction" built; automated broker-payout matching (like Epic 5's auto-match) is a follow-up |
 
 ---
 
@@ -306,8 +306,9 @@
 
 ---
 
-*Last updated: July 16, 2026 — Epic 12 (double-entry ledger) and Epic 18 Phase A
-(contractor/freelancer payments) shipped; USER-STORIES.md originally reframed July 15, 2026
+*Last updated: July 17, 2026 — Epic 17 (multi-account support + investment/capital-gains
+ingestion) shipped. Epic 12 (double-entry ledger) and Epic 18 Phase A (contractor/freelancer
+payments) shipped July 16, 2026; USER-STORIES.md originally reframed July 15, 2026
 around the "intelligent CA for MSME business owners" product bar (dissect → reconcile →
 filing-ready), Epics 12–19 added (double-entry ledger, GST filing readiness, TDS tracking,
 financial statements, CA collaboration mode, multi-account & investment ingestion,
