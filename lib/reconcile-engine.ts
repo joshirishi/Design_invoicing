@@ -46,12 +46,12 @@ const PURCHASE_EXCLUDED_ACCOUNTS = new Set([
   "Shopping & Retail", "Entertainment", "Education", "Household & Personal Care",
 ])
 
-function daysBetween(a: string, b: string): number {
+export function daysBetween(a: string, b: string): number {
   const diff = Math.abs(new Date(a).getTime() - new Date(b).getTime())
   return Math.floor(diff / (1000 * 60 * 60 * 24))
 }
 
-function amountConfidence(bankAmt: number, matchAmt: number): number {
+export function amountConfidence(bankAmt: number, matchAmt: number): number {
   const diff = Math.abs(bankAmt - matchAmt)
   if (diff === 0) return 100
   if (diff <= 1) return 98
@@ -296,6 +296,79 @@ export async function generateReconciliationSuggestions(
   }
 
   return { created, skipped }
+}
+
+// ── Payee payment link suggestions (Epic 18 follow-up) ──────────────────────
+// Unlike runAutoReconcile above, this never writes anything — it suggests a
+// best-guess bank_transaction for an already-existing, unlinked payee_payment
+// so the user can confirm with one click instead of searching a dropdown.
+// Same amount/date scoring as the proven invoice/purchase matcher; kept
+// separate because linking two existing rows carries no risk of silently
+// fabricating a financial record, but a wrong link is still a real mistake —
+// hence "suggest and confirm," not "auto-apply."
+
+export interface PayeePaymentLinkSuggestion {
+  paymentId: number
+  transactionId: string
+  confidence: number
+  reason: string
+  transaction: { transaction_date: string; description: string; debit: number }
+}
+
+export async function suggestPayeePaymentLinks(orgId: number): Promise<PayeePaymentLinkSuggestion[]> {
+  const unlinkedPayments = await sql`SELECT id, net_amount, payment_date
+    FROM payee_payments
+    WHERE org_id = ${orgId} AND linked_bank_transaction_id IS NULL
+    ORDER BY payment_date DESC
+    LIMIT 100`
+
+  if (unlinkedPayments.length === 0) return []
+
+  // Candidate pool: unreconciled debits not already linked to another payee payment.
+  const candidateTxns = await rawSql(`SELECT bt.id, bt.transaction_date, bt.description, bt.debit FROM bank_transactions bt WHERE bt.org_id = ${orgId} AND bt.debit > 0 AND bt.reconciled = false AND NOT EXISTS (SELECT 1 FROM payee_payments pp WHERE pp.linked_bank_transaction_id = bt.id) ORDER BY bt.transaction_date DESC LIMIT 500`)
+
+  const suggestions: PayeePaymentLinkSuggestion[] = []
+  const usedTxnIds = new Set<string>()
+
+  for (const payment of unlinkedPayments) {
+    const netAmount = Number(payment.net_amount)
+    const payDate = String(payment.payment_date).split("T")[0]
+
+    let best: { txn: Record<string, unknown>; score: number } | null = null
+
+    for (const txn of candidateTxns) {
+      const txnId = String(txn.id)
+      if (usedTxnIds.has(txnId)) continue
+
+      const debit = Number(txn.debit)
+      const amtScore = amountConfidence(netAmount, debit)
+      if (amtScore === 0) continue
+
+      const txnDate = String(txn.transaction_date).split("T")[0]
+      const days = daysBetween(payDate, txnDate)
+      const dateScore = days <= 3 ? 20 : days <= 10 ? 10 : days <= 30 ? 0 : -50
+      const score = amtScore + dateScore
+
+      if (score > (best?.score ?? -Infinity)) best = { txn, score }
+    }
+
+    if (best && best.score >= 70) {
+      usedTxnIds.add(String(best.txn.id))
+      suggestions.push({
+        paymentId: Number(payment.id),
+        transactionId: String(best.txn.id),
+        confidence: Math.min(100, best.score),
+        reason: `₹${netAmount.toLocaleString("en-IN")} paid on ${payDate} closely matches this debit`,
+        transaction: {
+          transaction_date: String(best.txn.transaction_date).split("T")[0],
+          description: String(best.txn.description ?? ""),
+          debit: Number(best.txn.debit),
+        },
+      })
+    }
+  }
+
+  return suggestions
 }
 
 // Fetch unreconciled summary for notifications

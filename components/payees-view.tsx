@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { fetchFromAPI } from "@/lib/fetch"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -84,6 +84,30 @@ export function PayeesView({
   // to, so it isn't double-counted as both raw bank activity and a payee record.
   const [linkingPaymentId, setLinkingPaymentId] = useState<number | null>(null)
   const [unmatchedTxns, setUnmatchedTxns] = useState<{ id: string; transaction_date: string; description: string; debit: number | null }[] | null>(null)
+
+  // Suggested links — best-guess matches, never auto-applied, one click to confirm.
+  const [suggestions, setSuggestions] = useState<Map<number, { transactionId: string; confidence: number; transaction: { transaction_date: string; description: string; debit: number } }>>(new Map())
+  const [confirmingId, setConfirmingId] = useState<number | null>(null)
+  const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<number>>(new Set())
+
+  useEffect(() => {
+    fetch("/api/payee-payments/suggestions")
+      .then((r) => r.json())
+      .then((rows: { paymentId: number; transactionId: string; confidence: number; transaction: { transaction_date: string; description: string; debit: number } }[]) => {
+        if (!Array.isArray(rows)) return
+        setSuggestions(new Map(rows.map((r) => [r.paymentId, { transactionId: r.transactionId, confidence: r.confidence, transaction: r.transaction }])))
+      })
+      .catch(() => {})
+  }, [])
+
+  async function confirmSuggestion(paymentId: number, transactionId: string) {
+    setConfirmingId(paymentId)
+    try {
+      await handleLinkPayment(paymentId, transactionId)
+    } finally {
+      setConfirmingId(null)
+    }
+  }
 
   async function openLinkPayment(paymentId: number) {
     setLinkingPaymentId(paymentId)
@@ -348,6 +372,30 @@ export function PayeesView({
                           <td className="py-2 pl-2">
                             {p.linked_bank_transaction_id ? (
                               <Badge variant="secondary" className="text-xs font-normal">Linked</Badge>
+                            ) : suggestions.has(p.id) && !dismissedSuggestions.has(p.id) ? (
+                              <div className="flex items-center gap-1.5">
+                                <div className="text-xs">
+                                  <span className="text-muted-foreground">Suggested: </span>
+                                  {suggestions.get(p.id)!.transaction.transaction_date} · ₹{formatINR(suggestions.get(p.id)!.transaction.debit)}
+                                </div>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-6 text-xs px-2"
+                                  disabled={confirmingId === p.id}
+                                  onClick={() => confirmSuggestion(p.id, suggestions.get(p.id)!.transactionId)}
+                                >
+                                  {confirmingId === p.id ? "…" : "Confirm"}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 text-xs px-1.5 text-muted-foreground"
+                                  onClick={() => setDismissedSuggestions((prev) => new Set(prev).add(p.id))}
+                                >
+                                  ✕
+                                </Button>
+                              </div>
                             ) : linkingPaymentId === p.id ? (
                               <Select onValueChange={(v) => handleLinkPayment(p.id, v)}>
                                 <SelectTrigger className="h-7 w-56 text-xs"><SelectValue placeholder="Select transaction…" /></SelectTrigger>
