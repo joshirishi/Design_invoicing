@@ -99,6 +99,16 @@ export interface Payment {
   client?: Partial<Client>
 }
 
+export interface BankAccount {
+  id: number
+  org_id: number
+  nickname: string
+  account_type: "savings" | "current" | "demat"
+  is_personal: boolean
+  created_at: string
+  updated_at: string
+}
+
 export interface BankTransaction {
   id: string
   org_id: number
@@ -115,11 +125,13 @@ export interface BankTransaction {
   category_source: string | null  // 'keyword' | 'regex' | 'ai' | 'user' | 'fallback'
   category_confidence: number | null // 0–100, set when category_source = 'ai'
   ledger_id: number | null        // FK to chart_of_accounts
+  account_id: number | null       // FK to bank_accounts
   upload_batch_id: string | null
   source_format: string | null
   created_at: string
   payment?: Partial<Payment>
   ledger?: Partial<ChartOfAccount>
+  account?: Partial<BankAccount>
 }
 
 export interface CategoryRule {

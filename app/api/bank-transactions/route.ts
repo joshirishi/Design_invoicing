@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
     const limit  = Math.min(200, Math.max(1, parseInt(searchParams.get("limit") ?? "50", 10)))
     const type   = searchParams.get("type") ?? "credits"
     const q      = searchParams.get("q")?.trim()
+    const accountIdParam = searchParams.get("account_id")
 
     // Build WHERE clause using safe numeric-only values (not user input)
     const oid = String(Math.floor(orgId))
@@ -35,8 +36,12 @@ export async function GET(request: NextRequest) {
       whereClause += ` AND description ILIKE '%${safeQ}%'`
     }
 
+    if (accountIdParam && /^\d+$/.test(accountIdParam)) {
+      whereClause += ` AND account_id = ${accountIdParam}`
+    }
+
     // Single-line rawSql — multi-line template literals cause silent failures via exec_sql RPC
-    const transactions = await rawSql(`SELECT id, transaction_date, description, reference_number, debit, credit, balance, reconciled, category, category_source, category_confidence, ledger_id, payment_id, purchase_id FROM bank_transactions WHERE ${whereClause} ORDER BY transaction_date DESC LIMIT ${lim} OFFSET ${off}`)
+    const transactions = await rawSql(`SELECT id, transaction_date, description, reference_number, debit, credit, balance, reconciled, category, category_source, category_confidence, ledger_id, account_id, payment_id, purchase_id FROM bank_transactions WHERE ${whereClause} ORDER BY transaction_date DESC LIMIT ${lim} OFFSET ${off}`)
 
     const counts = await rawSql(`SELECT COUNT(*) FILTER (WHERE credit > 0 AND reconciled = false) AS credits, COUNT(*) FILTER (WHERE debit > 0 AND reconciled = false) AS debits, COUNT(*) FILTER (WHERE reconciled = true) AS reconciled FROM bank_transactions WHERE org_id = ${oid}`)
 

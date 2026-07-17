@@ -27,6 +27,8 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
     const file = formData.get("file") as File | null
+    const accountIdRaw = formData.get("account_id") as string | null
+    const accountId = accountIdRaw && /^\d+$/.test(accountIdRaw) ? Number(accountIdRaw) : null
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 })
@@ -95,7 +97,7 @@ export async function POST(request: NextRequest) {
 
     // Build a single VALUES list for bulk INSERT
     const valuesList = final.map((r) =>
-      `(${orgId}, ${esc(r.transaction_date)}, ${esc(r.description)}, ${esc(r.reference_number ?? null)}, ${num(r.debit)}, ${num(r.credit)}, ${num(r.balance)}, false, ${esc(r.category)}, ${esc(r.source)}, ${r.chartAccountId ?? "NULL"}, ${r.confidence ?? "NULL"}, ${esc(batchId)}, ${esc(ext)})`
+      `(${orgId}, ${esc(r.transaction_date)}, ${esc(r.description)}, ${esc(r.reference_number ?? null)}, ${num(r.debit)}, ${num(r.credit)}, ${num(r.balance)}, false, ${esc(r.category)}, ${esc(r.source)}, ${r.chartAccountId ?? "NULL"}, ${r.confidence ?? "NULL"}, ${esc(batchId)}, ${esc(ext)}, ${accountId ?? "NULL"})`
     ).join(",\n")
 
     // Single bulk INSERT — ON CONFLICT DO NOTHING deduplicates against idx_bank_txn_dedup.
@@ -103,7 +105,7 @@ export async function POST(request: NextRequest) {
       INSERT INTO bank_transactions (
         org_id, transaction_date, description, reference_number,
         debit, credit, balance, reconciled,
-        category, category_source, ledger_id, category_confidence, upload_batch_id, source_format
+        category, category_source, ledger_id, category_confidence, upload_batch_id, source_format, account_id
       )
       VALUES ${valuesList}
       ON CONFLICT (org_id, transaction_date, description, COALESCE(debit, 0), COALESCE(credit, 0))

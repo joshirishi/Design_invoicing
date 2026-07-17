@@ -36,13 +36,18 @@ interface Payment {
   invoice_number: string | null
 }
 
+interface Account {
+  id: number
+  nickname: string
+}
+
 interface Counts { credits: string; debits: string; reconciled: string }
 
 type TabKey = "credits" | "debits" | "reconciled" | "suggested"
 
 const PAGE = 50
 
-export function ReconciliationView({ payments }: { payments: Payment[] }) {
+export function ReconciliationView({ payments, accounts = [] }: { payments: Payment[]; accounts?: Account[] }) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabKey>("credits")
   const [transactions, setTransactions] = useState<BankTxn[]>([])
@@ -57,6 +62,7 @@ export function ReconciliationView({ payments }: { payments: Payment[] }) {
   const [suggestedCount, setSuggestedCount] = useState<number | null>(null)
   const [search, setSearch] = useState("")
   const [debouncedSearch, setDebouncedSearch] = useState("")
+  const [accountId, setAccountId] = useState<string>("all")
 
   // Debounce search input ~300ms before it triggers a refetch
   useEffect(() => {
@@ -71,13 +77,14 @@ export function ReconciliationView({ payments }: { payments: Payment[] }) {
       .catch(() => setSuggestedCount(0))
   }, [])
 
-  const fetchPage = useCallback(async (tab: TabKey, pageOffset: number, append = false, q = "") => {
+  const fetchPage = useCallback(async (tab: TabKey, pageOffset: number, append = false, q = "", acctId = "all") => {
     if (tab === "suggested") { setLoading(false); return }
     append ? setLoadingMore(true) : setLoading(true)
     setFetchError(null)
     try {
       const qParam = q ? `&q=${encodeURIComponent(q)}` : ""
-      const res = await fetch(`/api/bank-transactions?type=${tab}&offset=${pageOffset}&limit=${PAGE}${qParam}`)
+      const acctParam = acctId !== "all" ? `&account_id=${acctId}` : ""
+      const res = await fetch(`/api/bank-transactions?type=${tab}&offset=${pageOffset}&limit=${PAGE}${qParam}${acctParam}`)
       const json = await res.json()
       if (!res.ok) { setFetchError(json.error ?? "Failed to load transactions"); return }
       if (!append) {
@@ -99,8 +106,8 @@ export function ReconciliationView({ payments }: { payments: Payment[] }) {
   useEffect(() => {
     setOffset(0)
     setTransactions([])
-    fetchPage(activeTab, 0, false, debouncedSearch)
-  }, [activeTab, debouncedSearch, fetchPage])
+    fetchPage(activeTab, 0, false, debouncedSearch, accountId)
+  }, [activeTab, debouncedSearch, accountId, fetchPage])
 
   const handleReconcile = async (transactionId: string, paymentId: string) => {
     setIsReconciling(transactionId)
@@ -109,7 +116,7 @@ export function ReconciliationView({ payments }: { payments: Payment[] }) {
         method: "POST",
         body: JSON.stringify({ transactionId, paymentId }),
       })
-      fetchPage(activeTab, 0)
+      fetchPage(activeTab, 0, false, debouncedSearch, accountId)
       setSelectedPayments((prev) => { const s = { ...prev }; delete s[transactionId]; return s })
     } catch (err) {
       console.error("Reconcile error:", err)
@@ -125,7 +132,7 @@ export function ReconciliationView({ payments }: { payments: Payment[] }) {
         method: "DELETE",
         body: JSON.stringify({ transactionId, paymentId }),
       })
-      fetchPage(activeTab, 0)
+      fetchPage(activeTab, 0, false, debouncedSearch, accountId)
     } catch (err) {
       console.error("Unreconcile error:", err)
     } finally {
@@ -178,16 +185,31 @@ export function ReconciliationView({ payments }: { payments: Payment[] }) {
         ))}
       </div>
 
-      {/* Search — filters the current tab's list only, not Suggested */}
+      {/* Search + account filter — filters the current tab's list only, not Suggested */}
       {activeTab !== "suggested" && (
-        <div className="relative max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            className="pl-9"
-            placeholder="Search by description…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+        <div className="flex gap-3 items-center flex-wrap">
+          <div className="relative max-w-sm flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              className="pl-9"
+              placeholder="Search by description…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          {accounts.length > 1 && (
+            <Select value={accountId} onValueChange={setAccountId}>
+              <SelectTrigger className="w-56">
+                <SelectValue placeholder="All accounts" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All accounts</SelectItem>
+                {accounts.map((a) => (
+                  <SelectItem key={a.id} value={String(a.id)}>{a.nickname}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
       )}
 
@@ -195,7 +217,7 @@ export function ReconciliationView({ payments }: { payments: Payment[] }) {
       {fetchError && (
         <div className="flex items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           <span className="flex-1">{fetchError}</span>
-          <Button size="sm" variant="outline" onClick={() => fetchPage(activeTab, 0, false, debouncedSearch)}>
+          <Button size="sm" variant="outline" onClick={() => fetchPage(activeTab, 0, false, debouncedSearch, accountId)}>
             <RefreshCw className="h-3.5 w-3.5 mr-1" />Retry
           </Button>
         </div>
@@ -324,7 +346,7 @@ export function ReconciliationView({ payments }: { payments: Payment[] }) {
               <div className="mt-4 text-center">
                 <Button
                   variant="outline"
-                  onClick={() => fetchPage(activeTab, offset, true, debouncedSearch)}
+                  onClick={() => fetchPage(activeTab, offset, true, debouncedSearch, accountId)}
                   disabled={loadingMore}
                 >
                   {loadingMore ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Loading…</> : "Load More"}

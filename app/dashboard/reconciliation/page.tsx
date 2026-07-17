@@ -23,8 +23,17 @@ async function getUnmatchedPayments() {
   }
 }
 
+async function getAccounts() {
+  try {
+    const orgId = await getCurrentOrgId()
+    return await sql`SELECT id, nickname FROM bank_accounts WHERE org_id = ${orgId} ORDER BY created_at ASC`
+  } catch {
+    return []
+  }
+}
+
 export default async function ReconciliationPage() {
-  const payments = await getUnmatchedPayments()
+  const [payments, accounts] = await Promise.all([getUnmatchedPayments(), getAccounts()])
 
   return (
     <div className="space-y-6">
@@ -36,10 +45,10 @@ export default async function ReconciliationPage() {
         <BackfillButton />
       </div>
 
-      <BankStatementUpload />
+      <BankStatementUpload accounts={accounts as any} />
 
       {/* ReconciliationView fetches transactions client-side with pagination */}
-      <ReconciliationView payments={payments as never[]} />
+      <ReconciliationView payments={payments as never[]} accounts={accounts as any} />
     </div>
   )
 }

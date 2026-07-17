@@ -4,6 +4,8 @@ import type React from "react"
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
 import { Upload, FileText, CheckCircle2, AlertCircle, Loader2, Sparkles, RefreshCw } from "lucide-react"
 import { useRouter } from "next/navigation"
 
@@ -24,13 +26,19 @@ interface UploadResult {
   batchId: string
 }
 
-export function BankStatementUpload() {
+interface Account {
+  id: number
+  nickname: string
+}
+
+export function BankStatementUpload({ accounts = [] }: { accounts?: Account[] }) {
   const router = useRouter()
   const [isUploading, setIsUploading] = useState(false)
   const [isReconciling, setIsReconciling] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<UploadResult | null>(null)
   const [file, setFile] = useState<File | null>(null)
+  const [accountId, setAccountId] = useState<string>(accounts[0] ? String(accounts[0].id) : "")
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0]
@@ -67,6 +75,7 @@ export function BankStatementUpload() {
     try {
       const formData = new FormData()
       formData.append("file", file)
+      if (accountId) formData.append("account_id", accountId)
 
       const res = await fetch("/api/bank-statements/upload", {
         method: "POST",
@@ -124,6 +133,21 @@ export function BankStatementUpload() {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
+          {/* Account selector — only shown once a second account exists */}
+          {accounts.length > 1 && (
+            <div className="space-y-1.5">
+              <Label>Which account is this statement from?</Label>
+              <Select value={accountId} onValueChange={setAccountId}>
+                <SelectTrigger className="max-w-sm"><SelectValue placeholder="Select account" /></SelectTrigger>
+                <SelectContent>
+                  {accounts.map((a) => (
+                    <SelectItem key={a.id} value={String(a.id)}>{a.nickname}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {/* Drop zone */}
           <label
             htmlFor="bank-file-upload"
