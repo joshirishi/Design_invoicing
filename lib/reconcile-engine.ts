@@ -373,13 +373,23 @@ export async function suggestPayeePaymentLinks(orgId: number): Promise<PayeePaym
 
 // ── Counterparty name resolution (UPI contacts follow-up) ───────────────────
 // Resolves a terse bank description to a real name using an uploaded UPI app
-// statement's VPA→name lookup (see lib/parsers/upi-statement.ts). Bank UPI
-// descriptions don't put the VPA in a fixed segment position (see the header
-// comment in lib/parsers/bank-signal.ts), so this checks the VPA's local-part
-// (before @) as a substring anywhere in the description, then falls back to a
-// normalized display-name substring match.
+// statement's lookup (see lib/parsers/upi-statement.ts). Three tiers, most
+// reliable first:
+//   1. UTR substring match — an NPCI-assigned reference shared identically
+//      between the bank statement and the UPI app statement for the same
+//      transaction. Verified against real data: UTR 058376116419 appears in
+//      both a PhonePe export ("Paid to GURUNATH ATMARAM DHAVADE") and the raw
+//      ICICI bank description. Long random digit strings, so a substring
+//      match carries negligible collision risk — and bank_transactions.
+//      reference_number is frequently NULL for UPI rows even when the UTR is
+//      embedded in the free-text description, so this checks description
+//      text directly rather than relying on a separate reference column.
+//   2. VPA local-part (before @) substring match.
+//   3. Normalized display-name substring match — weakest tier, since bank
+//      descriptions are often truncated/abbreviated relative to the full name.
 
 export interface UpiContact {
+  utr?: string | null
   vpa: string | null
   display_name: string
 }
@@ -387,6 +397,10 @@ export interface UpiContact {
 export function resolveCounterpartyName(description: string, contacts: UpiContact[]): string | null {
   const normDesc = normalizeForMatch(description)
   if (!normDesc) return null
+
+  for (const c of contacts) {
+    if (c.utr && c.utr.length >= 8 && description.includes(c.utr)) return c.display_name
+  }
 
   for (const c of contacts) {
     if (c.vpa) {

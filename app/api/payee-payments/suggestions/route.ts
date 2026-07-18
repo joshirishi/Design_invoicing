@@ -12,7 +12,7 @@ export async function GET() {
     const orgId = await getCurrentOrgId()
     const [suggestions, upiContacts] = await Promise.all([
       suggestPayeePaymentLinks(orgId),
-      sql`SELECT vpa, display_name FROM upi_contacts WHERE org_id = ${orgId}`.catch(() => []),
+      sql`SELECT utr, vpa, display_name FROM upi_contacts WHERE org_id = ${orgId}`.catch(() => []),
     ])
 
     const resolved = suggestions.map((s) => ({

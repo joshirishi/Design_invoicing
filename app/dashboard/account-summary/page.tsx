@@ -32,7 +32,7 @@ export default async function AccountSummaryPage() {
     ])
 
     // Resolve counterparty names from any uploaded UPI app statements — display-only.
-    const upiContacts = await sql`SELECT vpa, display_name FROM upi_contacts WHERE org_id = ${orgId}`.catch(() => [])
+    const upiContacts = await sql`SELECT utr, vpa, display_name FROM upi_contacts WHERE org_id = ${orgId}`.catch(() => [])
     const topCounterpartiesResolved = topCounterparties.map((c) => ({
       ...c,
       resolved_name: upiContacts.length > 0 ? resolveCounterpartyName(String(c.description ?? ""), upiContacts as any) : null,

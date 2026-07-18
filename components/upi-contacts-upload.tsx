@@ -74,13 +74,13 @@ export function UpiContactsUpload() {
             <>
               <Upload className="h-6 w-6 text-muted-foreground" />
               <span className="text-sm font-medium">Drop your statement here</span>
-              <span className="text-xs text-muted-foreground">CSV · XLS · XLSX</span>
+              <span className="text-xs text-muted-foreground">PDF · CSV · XLS · XLSX</span>
             </>
           )}
           <input
             id="upi-contacts-upload"
             type="file"
-            accept=".csv,.xls,.xlsx"
+            accept=".pdf,.csv,.xls,.xlsx"
             className="hidden"
             onChange={(e) => { setFile(e.target.files?.[0] ?? null); setError(null); setResult(null) }}
           />

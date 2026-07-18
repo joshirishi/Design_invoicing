@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
 
     // Resolve counterparty names from any uploaded UPI app statements (see
     // lib/parsers/upi-statement.ts) — display-only, no transactions created.
-    const upiContacts = await sql`SELECT vpa, display_name FROM upi_contacts WHERE org_id = ${orgId}`.catch(() => [])
+    const upiContacts = await sql`SELECT utr, vpa, display_name FROM upi_contacts WHERE org_id = ${orgId}`.catch(() => [])
     const transactionsResolved = transactions.map((t) => ({
       ...t,
       resolved_name: upiContacts.length > 0 ? resolveCounterpartyName(String(t.description ?? ""), upiContacts as any) : null,
