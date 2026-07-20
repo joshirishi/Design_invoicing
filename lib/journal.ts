@@ -291,6 +291,99 @@ export async function postCapitalGainJournalEntry(
   })
 }
 
+// ─── Profit & Loss (Epic 15, US-57) ─────────────────────────────────────────
+// Period-scoped: sums each Income/Expense account's activity between two
+// dates. Income accounts read as credit-heavy (net = credit − debit);
+// Expense accounts read as debit-heavy (net = debit − credit) — the opposite
+// convention, matching how those account types behave in double-entry.
+
+export interface PnlAccountRow {
+  account_id: number
+  account_name: string
+  account_type: "Income" | "Expense"
+  net: number
+}
+
+export async function getProfitAndLoss(orgId: number, startDate: string, endDate: string) {
+  const rows = await sql`SELECT a.id AS account_id, a.name AS account_name, a.type AS account_type, COALESCE(SUM(l.debit), 0) AS debit, COALESCE(SUM(l.credit), 0) AS credit FROM chart_of_accounts a JOIN journal_entry_lines l ON l.account_id = a.id JOIN journal_entries e ON e.id = l.entry_id WHERE e.org_id = ${orgId} AND a.type IN ('Income', 'Expense') AND e.entry_date >= ${startDate} AND e.entry_date <= ${endDate} GROUP BY a.id, a.name, a.type ORDER BY a.type, a.name`
+
+  const income: PnlAccountRow[] = []
+  const expense: PnlAccountRow[] = []
+  for (const r of rows) {
+    const debit = Number(r.debit)
+    const credit = Number(r.credit)
+    if (r.account_type === "Income") {
+      income.push({ account_id: Number(r.account_id), account_name: String(r.account_name), account_type: "Income", net: credit - debit })
+    } else {
+      expense.push({ account_id: Number(r.account_id), account_name: String(r.account_name), account_type: "Expense", net: debit - credit })
+    }
+  }
+
+  const totalIncome = income.reduce((s, r) => s + r.net, 0)
+  const totalExpense = expense.reduce((s, r) => s + r.net, 0)
+
+  return { income, expense, totalIncome, totalExpense, netProfit: totalIncome - totalExpense }
+}
+
+// ─── Balance Sheet (Epic 15, US-58) ─────────────────────────────────────────
+// Point-in-time, not period-scoped: every journal line from inception up to
+// asOfDate. Asset accounts read debit-heavy (net = debit − credit);
+// Liability and Equity accounts read credit-heavy (net = credit − debit).
+//
+// There is no formal period-close journal entry in this system (real
+// double-entry bookkeeping "closes" P&L accounts into Retained Earnings at
+// year-end) — so cumulative net profit-to-date is computed here and shown as
+// a synthetic "Retained Earnings (current period)" line, explicitly labeled
+// as computed rather than posted, so Assets = Liabilities + Equity holds.
+
+export interface BalanceSheetAccountRow {
+  account_id: number
+  account_name: string
+  account_type: "Asset" | "Liability" | "Equity"
+  net: number
+}
+
+export async function getBalanceSheet(orgId: number, asOfDate: string) {
+  const rows = await sql`SELECT a.id AS account_id, a.name AS account_name, a.type AS account_type, COALESCE(SUM(l.debit), 0) AS debit, COALESCE(SUM(l.credit), 0) AS credit FROM chart_of_accounts a JOIN journal_entry_lines l ON l.account_id = a.id JOIN journal_entries e ON e.id = l.entry_id WHERE e.org_id = ${orgId} AND a.type IN ('Asset', 'Liability', 'Equity') AND e.entry_date <= ${asOfDate} GROUP BY a.id, a.name, a.type ORDER BY a.type, a.name`
+
+  const assets: BalanceSheetAccountRow[] = []
+  const liabilities: BalanceSheetAccountRow[] = []
+  const equity: BalanceSheetAccountRow[] = []
+  for (const r of rows) {
+    const debit = Number(r.debit)
+    const credit = Number(r.credit)
+    if (r.account_type === "Asset") {
+      assets.push({ account_id: Number(r.account_id), account_name: String(r.account_name), account_type: "Asset", net: debit - credit })
+    } else if (r.account_type === "Liability") {
+      liabilities.push({ account_id: Number(r.account_id), account_name: String(r.account_name), account_type: "Liability", net: credit - debit })
+    } else {
+      equity.push({ account_id: Number(r.account_id), account_name: String(r.account_name), account_type: "Equity", net: credit - debit })
+    }
+  }
+
+  // Cumulative net profit from inception through asOfDate, folded into equity
+  // as a computed (not posted) Retained Earnings line.
+  const pnl = await getProfitAndLoss(orgId, "1900-01-01", asOfDate)
+
+  const totalAssets = assets.reduce((s, r) => s + r.net, 0)
+  const totalLiabilities = liabilities.reduce((s, r) => s + r.net, 0)
+  const totalEquityPosted = equity.reduce((s, r) => s + r.net, 0)
+  const retainedEarningsComputed = pnl.netProfit
+  const totalEquity = totalEquityPosted + retainedEarningsComputed
+
+  return {
+    assets,
+    liabilities,
+    equity,
+    totalAssets,
+    totalLiabilities,
+    totalEquityPosted,
+    retainedEarningsComputed,
+    totalEquity,
+    balanced: Math.abs(totalAssets - (totalLiabilities + totalEquity)) < 0.01,
+  }
+}
+
 // ─── Manual entry (US-51) ──────────────────────────────────────────────────
 
 export async function createManualJournalEntry(
