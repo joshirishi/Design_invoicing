@@ -1,25 +1,15 @@
 export const dynamic = "force-dynamic"
 
+import { sql } from "@/lib/db"
+import { getCurrentOrgId } from "@/lib/get-org"
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
 import Link from "next/link"
 import { ClientList } from "@/components/client-list"
 
-async function getClients() {
-  try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/clients`, {
-      cache: "no-store",
-    })
-    if (!res.ok) throw new Error("Failed to fetch clients")
-    return await res.json()
-  } catch (error) {
-    console.error("[v0] Error fetching clients:", error)
-    return []
-  }
-}
-
 export default async function ClientsPage() {
-  const clients = await getClients()
+  const orgId = await getCurrentOrgId()
+  const clients = await sql`SELECT * FROM clients WHERE org_id = ${orgId} ORDER BY name ASC`.catch(() => [])
 
   return (
     
