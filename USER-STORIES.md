@@ -98,7 +98,7 @@
 |---|---|---|---|
 | US-23 | View a GST report broken down by month | I can prepare my GSTR-1 filing | ✅ Built |
 | US-24 | See total output CGST, SGST, and IGST collected | I know exactly how much GST to pay | ✅ Built (IGST-exclusion correctness bug fixed Jul 13) |
-| US-25 | Export GST report data | I can share it with my CA or file it myself | ⚠️ Partial — raw export only, see US-53 |
+| US-25 | Export GST report data | I can share it with my CA or file it myself | ✅ Built — CSV export for B2B and HSN tables (portal-paste-ready), see US-53 |
 | US-26 | Track purchase/input tax credit (ITC) from vendor invoices | I can offset my GST liability | ✅ Built |
 
 ---
@@ -176,8 +176,8 @@
 
 | ID | As a user, I want to… | So that… | Status |
 |---|---|---|---|
-| US-53 | Export a structured GSTR-1 (outward supply) report — B2B invoices grouped by client GSTIN, with HSN, tax, and place-of-supply — ready to paste into the GST portal | I don't have to manually re-shape my invoice data for filing | 🔲 Not built (Sprint 4, scoped Jul 1, never started; underlying IGST/place-of-supply/HSN data exists since Sprint 1) |
-| US-54 | Reconcile my purchase-side ITC claims against GSTR-2B data | I don't over- or under-claim input credit | 🔲 Not built |
+| US-53 | Export a structured GSTR-1 (outward supply) report — B2B invoices grouped by client GSTIN, with HSN, tax, and place-of-supply — ready to paste into the GST portal | I don't have to manually re-shape my invoice data for filing | ✅ Built — B2B (Table 4) and HSN Summary (Table 12) both computed and rendered as tables with CSV export; combined JSON export explicitly flagged as unverified against the portal's actual offline-tool schema, not silently claimed as compliant |
+| US-54 | Reconcile my purchase-side ITC claims against GSTR-2B data | I don't over- or under-claim input credit | 🔲 Not built — GSTR-3B tab now shows ITC per tax head from logged purchases, but nothing to reconcile it against a GSTR-2B download yet |
 
 ---
 
