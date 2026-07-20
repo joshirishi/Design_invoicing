@@ -199,9 +199,9 @@
 
 | ID | As a user, I want to… | So that… | Status |
 |---|---|---|---|
-| US-57 | Generate a Profit & Loss statement for a selected period/financial year | I know my real profitability, not just revenue minus visible expenses | 🔲 Not built |
-| US-58 | Generate a Balance Sheet (Assets / Liabilities / Equity) | I can see my business's financial position the way a CA or bank would ask for it | 🔲 Not built (blocked on Epic 12 — no ledger to derive it from) |
-| US-62 | See a personal-ITR-readiness summary that combines business P&L, employee/contractor compensation, and capital gains (Epic 17) under the right ITR schedules | My CA gets one coherent picture at filing time instead of three disconnected exports | 🔲 Not built — depends on Epics 12, 17, and 18 |
+| US-57 | Generate a Profit & Loss statement for a selected period/financial year | I know my real profitability, not just revenue minus visible expenses | ✅ Built (`/dashboard/financial-statements`, `getProfitAndLoss()`) — computed live from Epic 12's ledger, period-scoped |
+| US-58 | Generate a Balance Sheet (Assets / Liabilities / Equity) | I can see my business's financial position the way a CA or bank would ask for it | ✅ Built — point-in-time (as-of date), with a computed Retained Earnings line since there's no formal period-close entry yet, and a Balanced/Off indicator matching the Trial Balance pattern |
+| US-62 | See a personal-ITR-readiness summary that combines business P&L, employee/contractor compensation, and capital gains (Epic 17) under the right ITR schedules | My CA gets one coherent picture at filing time instead of three disconnected exports | 🔲 Not built — P&L now exists (US-57), still need to combine with Epic 17/18 data under real ITR schedules |
 
 ---
 
