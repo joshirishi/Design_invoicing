@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Gstr2bReconciliationView } from "@/components/gstr2b-reconciliation-view"
 import { fetchFromAPI } from "@/lib/fetch"
 import { Calendar, TrendingUp, TrendingDown, ArrowRight, Download, ExternalLink, Loader2, Info, X } from "lucide-react"
 
@@ -224,6 +225,7 @@ export function GSTReportView() {
           <TabsTrigger value="summary">Summary</TabsTrigger>
           <TabsTrigger value="gstr1">GSTR-1 (Outward Supplies)</TabsTrigger>
           <TabsTrigger value="gstr3b">GSTR-3B (Filing Summary)</TabsTrigger>
+          <TabsTrigger value="itc-reconciliation">ITC Reconciliation</TabsTrigger>
         </TabsList>
 
         {/* ── Summary tab — existing quick-glance content ─────────────────── */}
@@ -556,6 +558,10 @@ export function GSTReportView() {
               Open GST Portal
             </Button>
           </div>
+        </TabsContent>
+
+        <TabsContent value="itc-reconciliation" className="pt-4">
+          <Gstr2bReconciliationView />
         </TabsContent>
       </Tabs>
     </div>
