@@ -64,6 +64,11 @@ export function PayeesView({
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split("T")[0])
   const [tdsSection, setTdsSection] = useState<string>("none")
   const [tdsRate, setTdsRate] = useState("")
+  // Payroll-only fields (payee_type === "employee")
+  const [tds192Amount, setTds192Amount] = useState("")
+  const [pfRate, setPfRate] = useState("12")
+  const [esiApplied, setEsiApplied] = useState(true)
+  const [professionalTax, setProfessionalTax] = useState("")
   const [paymentMethod, setPaymentMethod] = useState("")
   const [referenceNumber, setReferenceNumber] = useState("")
   const [savingPayment, setSavingPayment] = useState(false)
@@ -202,12 +207,18 @@ export function PayeesView({
     } catch (e: any) { alert(e.message) }
   }
 
+  const isPayroll = payingPayee?.payee_type === "employee"
+
   function openRecordPayment(payee: Payee) {
     setPayingPayee(payee)
     setAmount("")
     setPaymentDate(new Date().toISOString().split("T")[0])
-    setTdsSection("none")
+    setTdsSection(payee.payee_type === "employee" ? "192" : "none")
     setTdsRate("")
+    setTds192Amount("")
+    setPfRate("12")
+    setEsiApplied(true)
+    setProfessionalTax("")
     setPaymentMethod("")
     setReferenceNumber("")
     setPaymentError(null)
@@ -220,9 +231,19 @@ export function PayeesView({
   }
 
   const grossAmount = Number(amount) || 0
-  const effectiveRate = tdsSection === "none" ? 0 : Number(tdsRate) || 0
-  const computedTds = Math.round(((grossAmount * effectiveRate) / 100) * 100) / 100
-  const computedNet = grossAmount - computedTds
+  const effectiveRate = tdsSection === "none" || tdsSection === "192" ? 0 : Number(tdsRate) || 0
+  const contractorTds = Math.round(((grossAmount * effectiveRate) / 100) * 100) / 100
+
+  // Payroll-only figures — PF/ESI use fixed statutory formulas (safe to default);
+  // Professional Tax and TDS u/s 192 are always manual (state-varying / regime-dependent).
+  const computedPf = isPayroll ? Math.round(((grossAmount * (Number(pfRate) || 0)) / 100) * 100) / 100 : 0
+  const esiEligible = grossAmount > 0 && grossAmount <= 21000
+  const computedEsi = isPayroll && esiApplied && esiEligible ? Math.round(grossAmount * 0.0075 * 100) / 100 : 0
+  const computedPt = isPayroll ? Number(professionalTax) || 0 : 0
+  const computedTds192 = isPayroll ? Number(tds192Amount) || 0 : 0
+
+  const computedTds = isPayroll ? computedTds192 : contractorTds
+  const computedNet = grossAmount - computedTds - computedPf - computedEsi - computedPt
 
   async function handleRecordPayment() {
     setPaymentError(null)
@@ -236,7 +257,11 @@ export function PayeesView({
           payee_id: payingPayee.id,
           amount: grossAmount,
           tds_section: tdsSection === "none" ? null : tdsSection,
-          tds_rate: effectiveRate,
+          tds_rate: isPayroll ? null : effectiveRate,
+          tds_amount: isPayroll ? computedTds192 : undefined,
+          pf_amount: computedPf,
+          esi_amount: computedEsi,
+          professional_tax_amount: computedPt,
           payment_date: paymentDate,
           payment_method: paymentMethod || null,
           reference_number: referenceNumber || null,
@@ -246,6 +271,36 @@ export function PayeesView({
       setPaymentOpen(false)
     } catch (e: any) { setPaymentError(e.message) }
     finally { setSavingPayment(false) }
+  }
+
+  function exportSalaryRegister() {
+    const header = "Employee,PAN,Payment Date,Gross Salary,PF,ESI,Professional Tax,TDS (192),Net Salary\n"
+    const rows = payments
+      .filter((p) => payees.find((py) => py.id === p.payee_id)?.payee_type === "employee")
+      .map((p) => {
+        const payee = payees.find((py) => py.id === p.payee_id)
+        return [
+          payee?.name ?? "",
+          payee?.pan_no ?? "",
+          p.payment_date,
+          Number(p.amount).toFixed(2),
+          Number(p.pf_amount || 0).toFixed(2),
+          Number(p.esi_amount || 0).toFixed(2),
+          Number(p.professional_tax_amount || 0).toFixed(2),
+          Number(p.tds_amount || 0).toFixed(2),
+          Number(p.net_amount).toFixed(2),
+        ]
+          .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+          .join(",")
+      })
+      .join("\n")
+    const blob = new Blob([header + rows], { type: "text/csv" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = "salary-register.csv"
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   function exportQuarterCsv() {
@@ -344,8 +399,16 @@ export function PayeesView({
 
         <TabsContent value="payments" className="pt-4 space-y-4">
           <Card>
-            <CardHeader className="pb-3">
+            <CardHeader className="pb-3 flex flex-row items-center justify-between">
               <CardTitle className="text-base">Recent Payments</CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={exportSalaryRegister}
+                disabled={!payments.some((p) => payees.find((py) => py.id === p.payee_id)?.payee_type === "employee")}
+              >
+                <Download className="h-3.5 w-3.5 mr-1.5" />Export Salary Register
+              </Button>
             </CardHeader>
             <CardContent className="pt-0">
               {payments.length === 0 ? (
@@ -566,34 +629,82 @@ export function PayeesView({
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <Label>TDS Section</Label>
-              <Select value={tdsSection} onValueChange={handleTdsSectionChange}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No TDS</SelectItem>
-                  <SelectItem value="194J">194J — Professional / consulting services</SelectItem>
-                  <SelectItem value="194C">194C — Contract work (maintenance, printing, etc.)</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                194J: professional or consulting fees (default 10%) · 194C: contract/labor work, not professional advice (default 1% for individuals)
-              </p>
-            </div>
+            {isPayroll ? (
+              <>
+                <div className="rounded-md border px-3 py-3 space-y-3 bg-muted/20">
+                  <p className="text-xs font-medium text-muted-foreground">Payroll Deductions</p>
 
-            {tdsSection !== "none" && (
-              <div className="space-y-1.5">
-                <Label>TDS Rate (%)</Label>
-                <Input type="number" step="0.01" value={tdsRate} onChange={(e) => setTdsRate(e.target.value)} className="w-28" />
-                <p className="text-xs text-muted-foreground">Adjust if this payee is a company (194C is 2%) or has a lower-deduction certificate.</p>
-              </div>
+                  <div className="flex items-center gap-3">
+                    <div className="space-y-1.5 flex-1">
+                      <Label className="text-xs">PF Rate (%)</Label>
+                      <Input type="number" step="0.01" value={pfRate} onChange={(e) => setPfRate(e.target.value)} className="h-8" />
+                    </div>
+                    <p className="text-xs text-muted-foreground pt-5 tabular-nums">= ₹{formatINR(computedPf)}</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground -mt-2">12% of gross is the standard employee PF contribution — adjust if this employee is on a different basic-pay split.</p>
+
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label className="text-xs">Apply ESI (0.75%)</Label>
+                      <p className="text-xs text-muted-foreground">{esiEligible ? "Eligible — gross is at or below ₹21,000/month" : "Not eligible — gross exceeds the ₹21,000/month ESI wage ceiling"}</p>
+                    </div>
+                    <input type="checkbox" checked={esiApplied && esiEligible} disabled={!esiEligible} onChange={(e) => setEsiApplied(e.target.checked)} className="h-4 w-4" />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Professional Tax</Label>
+                    <Input type="number" value={professionalTax} onChange={(e) => setProfessionalTax(e.target.value)} placeholder="0.00" className="h-8" />
+                    <p className="text-xs text-muted-foreground">Varies by state — not calculated here, enter your state's slab (e.g. ₹200/month in Maharashtra).</p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">TDS u/s 192</Label>
+                    <Input type="number" value={tds192Amount} onChange={(e) => setTds192Amount(e.target.value)} placeholder="0.00" className="h-8" />
+                    <p className="text-xs text-muted-foreground">Not calculated here — depends on the employee's declared regime and deductions. Enter the amount from your own or your CA's computation.</p>
+                  </div>
+                </div>
+
+                <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm space-y-1">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Gross salary</span><span className="tabular-nums">₹{formatINR(grossAmount)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">PF</span><span className="tabular-nums">− ₹{formatINR(computedPf)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">ESI</span><span className="tabular-nums">− ₹{formatINR(computedEsi)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Professional Tax</span><span className="tabular-nums">− ₹{formatINR(computedPt)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">TDS u/s 192</span><span className="tabular-nums">− ₹{formatINR(computedTds192)}</span></div>
+                  <div className="flex justify-between font-semibold pt-1 border-t"><span>Net salary</span><span className="tabular-nums">₹{formatINR(computedNet)}</span></div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="space-y-1.5">
+                  <Label>TDS Section</Label>
+                  <Select value={tdsSection} onValueChange={handleTdsSectionChange}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No TDS</SelectItem>
+                      <SelectItem value="194J">194J — Professional / consulting services</SelectItem>
+                      <SelectItem value="194C">194C — Contract work (maintenance, printing, etc.)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    194J: professional or consulting fees (default 10%) · 194C: contract/labor work, not professional advice (default 1% for individuals)
+                  </p>
+                </div>
+
+                {tdsSection !== "none" && (
+                  <div className="space-y-1.5">
+                    <Label>TDS Rate (%)</Label>
+                    <Input type="number" step="0.01" value={tdsRate} onChange={(e) => setTdsRate(e.target.value)} className="w-28" />
+                    <p className="text-xs text-muted-foreground">Adjust if this payee is a company (194C is 2%) or has a lower-deduction certificate.</p>
+                  </div>
+                )}
+
+                <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm space-y-1">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Gross amount</span><span className="tabular-nums">₹{formatINR(grossAmount)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">TDS deducted</span><span className="tabular-nums">₹{formatINR(computedTds)}</span></div>
+                  <div className="flex justify-between font-semibold"><span>Net payable</span><span className="tabular-nums">₹{formatINR(computedNet)}</span></div>
+                </div>
+              </>
             )}
-
-            <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm space-y-1">
-              <div className="flex justify-between"><span className="text-muted-foreground">Gross amount</span><span className="tabular-nums">₹{formatINR(grossAmount)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">TDS deducted</span><span className="tabular-nums">₹{formatINR(computedTds)}</span></div>
-              <div className="flex justify-between font-semibold"><span>Net payable</span><span className="tabular-nums">₹{formatINR(computedNet)}</span></div>
-            </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">

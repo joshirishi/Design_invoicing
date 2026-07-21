@@ -247,9 +247,12 @@ export interface PayeePayment {
   org_id: number
   payee_id: number
   amount: number          // gross, before TDS
-  tds_section: "194J" | "194C" | null
+  tds_section: "194J" | "194C" | "192" | null
   tds_rate: number
   tds_amount: number
+  pf_amount: number
+  esi_amount: number
+  professional_tax_amount: number
   net_amount: number
   payment_date: string
   payment_method: string | null

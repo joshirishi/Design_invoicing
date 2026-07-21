@@ -213,6 +213,9 @@ export async function postPayeePaymentJournalEntry(
     tds_amount: number
     payment_method: string | null
     reference_number: string | null
+    pf_amount?: number
+    esi_amount?: number
+    professional_tax_amount?: number
   },
 ): Promise<number> {
   const bankLedgerName = payment.payment_method?.toLowerCase().includes("cash") ? "Cash in Hand" : "Bank Account"
@@ -221,14 +224,31 @@ export async function postPayeePaymentJournalEntry(
     resolveAccountId(orgId, bankLedgerName),
   ])
 
-  const netAmount = payment.amount - (payment.tds_amount || 0)
+  const tds = payment.tds_amount || 0
+  const pf = payment.pf_amount || 0
+  const esi = payment.esi_amount || 0
+  const pt = payment.professional_tax_amount || 0
+  const netAmount = payment.amount - tds - pf - esi - pt
+
   const lines: JournalLineInput[] = [
     { account_id: salary, debit: payment.amount, credit: 0 },
   ]
 
-  if ((payment.tds_amount || 0) > 0) {
+  if (tds > 0) {
     const tdsPayable = await resolveAccountId(orgId, "TDS Payable")
-    lines.push({ account_id: tdsPayable, debit: 0, credit: payment.tds_amount })
+    lines.push({ account_id: tdsPayable, debit: 0, credit: tds })
+  }
+  if (pf > 0) {
+    const pfPayable = await resolveAccountId(orgId, "PF Payable")
+    lines.push({ account_id: pfPayable, debit: 0, credit: pf })
+  }
+  if (esi > 0) {
+    const esiPayable = await resolveAccountId(orgId, "ESI Payable")
+    lines.push({ account_id: esiPayable, debit: 0, credit: esi })
+  }
+  if (pt > 0) {
+    const ptPayable = await resolveAccountId(orgId, "Professional Tax Payable")
+    lines.push({ account_id: ptPayable, debit: 0, credit: pt })
   }
 
   lines.push({ account_id: bank, debit: 0, credit: netAmount })
