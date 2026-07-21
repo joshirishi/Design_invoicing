@@ -301,6 +301,25 @@
 
 ---
 
+## Epic 21: Unified Document Hub
+
+> By this point the app has six separate upload flows (bank statements, UPI app exports, GSTR-2B
+> JSON, broker Tax P&L, and the GST Document Checklist's six document types), each on its own
+> page. The user has to know in advance which page a given file belongs to. This epic collapses
+> that into one drop zone that inspects the file and asks for confirmation before routing it —
+> detection is grounded in real signals (GSTR-2B's JSON schema, the broker Tax P&L's sheet names,
+> and — verified against the user's real GST portal exports — the Electronic Cash/Credit
+> Ledger and Liability Register CSVs, which each carry their report title as the literal first
+> line), never a silent guess that gets written straight to the database.
+
+| ID | As a user, I want to… | So that… | Status |
+|---|---|---|---|
+| US-82 | Drop any document — bank statement, UPI export, GSTR-2B, broker Tax P&L, or a GST portal document — into one place, without first deciding which page it belongs to | I don't need to remember six different upload flows | ✅ Built (`/dashboard/documents`) |
+| US-83 | See what the platform thinks a dropped file is, with a preview of what was found, before anything is saved | I can catch a misclassification instead of financial data silently landing in the wrong place | ✅ Built — confidence badge (confident / likely / not sure) + override dropdown; nothing is uploaded until "Confirm & Upload" |
+| US-84 | Track the Electronic Cash Ledger, Electronic Credit Ledger, and Electronic Liability Register — the GST portal's own record of cash, ITC, and liability — alongside the existing GSTR-1/3B/9 checklist | I keep the government's own ledgers on file the same way I keep filed returns | ✅ Built — added to the GST Document Checklist registry; detected automatically by report title, stored (not yet parsed for reconciliation — a follow-up) |
+
+---
+
 ## Backlog — Retention & Growth (secondary to the CA-grade gap above)
 
 > Per the Jul 10 design-critic session (`[[knowledge-bank/Design/UX-Story-Gate-Session]]`), Meera

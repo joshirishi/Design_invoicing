@@ -1,0 +1,18 @@
+Electronic Credit Ledger
+
+,,,GSTIN,27AGSPJ2168A1ZF,
+,,,Legal Name,RISHIKESH DINAKAR JOSHI,
+,,,From,01/04/2026,
+,,,To,21/07/2026
+Sr.No,Date,Reference No.,Tax Period if any ,Description ,Transaction Type[Debit (DR) / Credit (CR)],,,Credit / Debit,,,,Balance Available
+,,,,,,Integrated Tax,Central Tax,State Tax,CESS,Total,Integrated Tax,Central Tax,State Tax,CESS,Total
+" -","-","-","-","Opening Balance","-","-","-","-","-","-","0","23827","23827","0","47654",
+" 1","20/04/2026","AC270326739908I","Mar-26","ITC accrued through - Inputs","Credit","7086","87161","87161","0","181408","7086","110988","110988","0","229062",
+" 2","20/04/2026","DI2704260511057","Mar-26","Other than reverse charge","Debit","7086","21207","21207","0","49500","0","89781","89781","0","179562",
+" 3","15/05/2026","AB270426410767Y","Apr-26","ITC accrued through - Inputs","Credit","1226","53352","53352","0","107930","1226","143133","143133","0","287492",
+" 4","15/05/2026","DI2705260094859","Apr-26","Other than reverse charge","Debit","1226","29852","29852","0","60930","0","113281","113281","0","226562",
+" 5","19/06/2026","AB270526944482V","May-26","ITC accrued through - Inputs","Credit","9418","17044","17044","0","43506","9418","130325","130325","0","270068",
+" 6","19/06/2026","DI2706260311758","May-26","Other than reverse charge","Debit","9418","20041","20041","0","49500","0","110284","110284","0","220568",
+" 7","20/07/2026","AC2706267244231","Jun-26","ITC accrued through - Inputs","Credit","0","33296","33296","0","66592","0","143580","143580","0","287160",
+" 8","20/07/2026","DI2707260488417","Jun-26","Other than reverse charge","Debit","0","26031","24750","0","50781","0","117549","118830","0","236379",
+" -","-","-","-","Closing Balance","-","-","-","-","-","-","0","117549","118830","0","236379",

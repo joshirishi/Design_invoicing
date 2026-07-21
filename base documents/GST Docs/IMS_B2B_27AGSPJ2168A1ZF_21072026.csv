@@ -1,0 +1,12 @@
+Goods and Services Tax  - IMS
+Taxable inward supplies received from registered persons
+GSTIN of Supplier,Trade/Legal name,Invoice Number,Invoice Type,Invoice Date,Invoice Value ,Status,Place of Supply, Taxable Value ,Integrated Tax ,Central Tax ,State/UT Tax ,Cess ,Remarks, Source,Source Return Period,Source Filing Status,Source Return Filing Date,Filing Frequency of Supplier 
+27AAHCG8852E1ZD,GENUINE INNOVATIONS PRIVATE LIMITED,BOM5-1871,Regular,03/07/2026,295.99,No Action,Maharashtra,250.85,0,22.57,22.57,0,No remarks available,GSTR-1/IFF,07/2026,Not Filed,NA,NA
+27FFLPP2642E1ZA,M.A.ENTERPRISES,BOM7-1422,Regular,17/06/2026,2795,No Action,Maharashtra,2369,0,213,213,0,No remarks available,GSTR-1/IFF,06/2026,Not Filed,NA,NA
+07GHRPD2671E1Z8,Well sale,IN-1700,Regular,23/06/2026,1699,No Action,Maharashtra,1439.83,259.17,0,0,0,No remarks available,GSTR-1/IFF,06/2026,Not Filed,NA,NA
+33APUPJ4388M1Z2,ZION TRADERS,IN-1842,Regular,11/06/2026,598,No Action,Maharashtra,569.1,28.46,0,0,0,No remarks available,GSTR-1/IFF,06/2026,Filed,16/07/2026,Monthly
+27ALKPJ2651H1Z2,KARAOKE HUB,PNQ3-1072,Regular,11/07/2026,984.98,No Action,Maharashtra,834.74,0,75.12,75.12,0,No remarks available,GSTR-1/IFF,07/2026,Not Filed,NA,NA
+27AATCA3173C1ZN,AUTOTRONICS FLUOROCHEM PRIVATE LIMITED,PNQ3-1827,Regular,17/07/2026,3499,No Action,Maharashtra,2965.26,0,266.87,266.87,0,No remarks available,GSTR-1/IFF,07/2026,Not Filed,NA,NA
+27AADCV4254H1Z8,ETRADE MARKETING PRIVATE LIMITED,PNQ3-601344,Regular,11/07/2026,1397.98,No Action,Maharashtra,1331.42,0,33.28,33.28,0,No remarks available,GSTR-1/IFF,07/2026,Not Filed,NA,NA
+27ABGFM5364A1ZF,MATRIX TRADE CONNECT LLP,PNQ3-678,Regular,11/07/2026,4290.98,No Action,Maharashtra,3636.44,0,327.27,327.27,0,No remarks available,GSTR-1/IFF,07/2026,Not Filed,NA,NA
+27BSZPK3016J1Z9,X4Cart,SPNG-1020,Regular,17/06/2026,549,No Action,Maharashtra,522.86,0,13.07,13.07,0,No remarks available,GSTR-1/IFF,06/2026,Filed,17/07/2026,Monthly

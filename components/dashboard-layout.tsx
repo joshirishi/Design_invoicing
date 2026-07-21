@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { Button } from "@/components/ui/button"
-import { FileText, Users, DollarSign, BarChart3, Upload, Settings, Menu, Receipt, ShoppingBag, PieChart, LogOut, Paintbrush, Store, BookOpen, ArrowDownToLine, UserCog, TrendingUp, ScrollText, CalendarClock } from "lucide-react"
+import { FileText, Users, DollarSign, BarChart3, Upload, Settings, Menu, Receipt, ShoppingBag, PieChart, LogOut, Paintbrush, Store, BookOpen, ArrowDownToLine, UserCog, TrendingUp, ScrollText, CalendarClock, FolderOpen } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
@@ -12,6 +12,7 @@ import { createBrowserClient } from "@/lib/supabase-auth"
 const navigation = [
   { name: "Dashboard",         href: "/dashboard",                         icon: BarChart3       },
   { name: "Account Summary",   href: "/dashboard/account-summary",         icon: PieChart        },
+  { name: "Documents",         href: "/dashboard/documents",               icon: FolderOpen      },
   { name: "Invoices",          href: "/dashboard/invoices",                icon: FileText        },
   { name: "Invoice Templates", href: "/dashboard/invoices/templates",      icon: Paintbrush      },
   { name: "Clients",           href: "/dashboard/clients",                 icon: Users           },
