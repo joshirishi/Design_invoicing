@@ -287,6 +287,20 @@
 
 ---
 
+## Epic 20: Advance Tax
+
+> Deliberately scoped around what a bookkeeping tool can safely automate versus what requires a
+> human judgment call. Tax regime, slab, and capital-gains tax treatment (111A/112A) are not
+> computed here — the user or their CA supplies a confirmed liability estimate, and the app tracks
+> the mechanical instalment math (Section 211's 15/45/75/100% cumulative schedule) against it.
+
+| ID | As a user, I want to… | So that… | Status |
+|---|---|---|---|
+| US-80 | See my quarterly advance-tax instalment schedule, computed from a total liability figure I confirm and reduced by TDS already credited | I know how much is due by 15 Jun/Sep/Dec/Mar without doing the cumulative-percentage math myself | ✅ Built (`/dashboard/advance-tax`) — reference figures (net profit, capital gains, TDS credited) pull live from Financial Statements, Capital Gains, and TDS Summary |
+| US-81 | Log actual advance-tax challan payments and see whether I'm on track, short, or overdue per instalment | I catch a missed instalment before Section 234B/234C interest applies | ✅ Built — Paid/Overdue/Upcoming status per instalment, challan number reference |
+
+---
+
 ## Backlog — Retention & Growth (secondary to the CA-grade gap above)
 
 > Per the Jul 10 design-critic session (`[[knowledge-bank/Design/UX-Story-Gate-Session]]`), Meera
