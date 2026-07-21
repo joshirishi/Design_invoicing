@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { Button } from "@/components/ui/button"
-import { FileText, Users, DollarSign, BarChart3, Upload, Settings, Menu, Receipt, ShoppingBag, PieChart, LogOut, Paintbrush, Store, BookOpen, ArrowDownToLine, UserCog, TrendingUp, ScrollText } from "lucide-react"
+import { FileText, Users, DollarSign, BarChart3, Upload, Settings, Menu, Receipt, ShoppingBag, PieChart, LogOut, Paintbrush, Store, BookOpen, ArrowDownToLine, UserCog, TrendingUp, ScrollText, CalendarClock } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
@@ -25,6 +25,7 @@ const navigation = [
   { name: "Tally Export",      href: "/dashboard/tally-export",            icon: ArrowDownToLine },
   { name: "Chart of Accounts", href: "/dashboard/ledger",                  icon: BookOpen        },
   { name: "Financial Statements", href: "/dashboard/financial-statements", icon: ScrollText      },
+  { name: "Advance Tax",       href: "/dashboard/advance-tax",             icon: CalendarClock   },
 ]
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
