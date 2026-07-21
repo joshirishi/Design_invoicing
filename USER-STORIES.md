@@ -190,8 +190,8 @@
 
 | ID | As a user, I want to… | So that… | Status |
 |---|---|---|---|
-| US-55 | See a report of all TDS deducted on payments received, by section | I know what to reconcile against Form 26AS at filing time | 🔲 Not built |
-| US-56 | Get flagged when a client's TDS deduction doesn't match the expected rate for the payment type | I catch under/over-deduction before it becomes a filing discrepancy | 🔲 Not built |
+| US-55 | See a report of all TDS deducted on payments received, by section | I know what to reconcile against Form 26AS at filing time | ✅ Built (`/dashboard/payments` → TDS Summary tab) — also fixed a real gap where the Payment form never exposed fields to enter TDS at all |
+| US-56 | Get flagged when a client's TDS deduction doesn't match the expected rate for the payment type | I catch under/over-deduction before it becomes a filing discrepancy | ✅ Built — flags rate mismatches with a non-judgmental note, since a mismatch isn't automatically wrong (lower-deduction certificates, individual vs. company rates) |
 
 ---
 
