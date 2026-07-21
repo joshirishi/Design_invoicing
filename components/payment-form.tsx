@@ -18,6 +18,8 @@ interface PaymentFormProps {
   clients: Client[]
 }
 
+const TDS_RATES: Record<string, number> = { "194J": 10, "194C": 1 }
+
 export function PaymentForm({ invoices, clients }: PaymentFormProps) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
@@ -32,6 +34,18 @@ export function PaymentForm({ invoices, clients }: PaymentFormProps) {
     reference_number: "",
     notes: "",
   })
+  const [tdsSection, setTdsSection] = useState<string>("none")
+  const [tdsRate, setTdsRate] = useState("")
+
+  function handleTdsSectionChange(section: string) {
+    setTdsSection(section)
+    setTdsRate(section === "none" ? "" : String(TDS_RATES[section] ?? 0))
+  }
+
+  const grossAmount = Number(formData.amount) || 0
+  const effectiveTdsRate = tdsSection === "none" ? 0 : Number(tdsRate) || 0
+  const computedTdsAmount = Math.round(((grossAmount * effectiveTdsRate) / 100) * 100) / 100
+  const netReceived = grossAmount - computedTdsAmount
 
   const selectedInvoice = invoices.find((inv) => inv.id === formData.invoice_id)
 
@@ -51,6 +65,8 @@ export function PaymentForm({ invoices, clients }: PaymentFormProps) {
           payment_method: formData.payment_method || null,
           reference_number: formData.reference_number || null,
           notes: formData.notes || null,
+          tds_section: tdsSection === "none" ? null : tdsSection,
+          tds_amount: computedTdsAmount,
         }),
       })
 
@@ -165,6 +181,36 @@ export function PaymentForm({ invoices, clients }: PaymentFormProps) {
                 />
               </div>
             </div>
+
+            <div className="space-y-2">
+              <Label>Did the client deduct TDS from this payment?</Label>
+              <Select value={tdsSection} onValueChange={handleTdsSectionChange}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No TDS deducted</SelectItem>
+                  <SelectItem value="194J">194J — Professional / consulting services</SelectItem>
+                  <SelectItem value="194C">194C — Contract work (maintenance, printing, etc.)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                194J: professional or consulting fees (default 10%) · 194C: contract/labor work, not professional advice (default 1%).
+                This is TDS your client withheld — different from TDS you deduct when paying your own contractors (tracked under Payees).
+              </p>
+            </div>
+
+            {tdsSection !== "none" && (
+              <div className="space-y-3">
+                <div className="space-y-2 max-w-[140px]">
+                  <Label htmlFor="tds_rate">TDS Rate (%)</Label>
+                  <Input id="tds_rate" type="number" step="0.01" value={tdsRate} onChange={(e) => setTdsRate(e.target.value)} />
+                </div>
+                <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm space-y-1">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Gross amount</span><span className="tabular-nums">₹{grossAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">TDS deducted</span><span className="tabular-nums">₹{computedTdsAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span></div>
+                  <div className="flex justify-between font-semibold"><span>Net received in bank</span><span className="tabular-nums">₹{netReceived.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span></div>
+                </div>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="notes">Notes</Label>
