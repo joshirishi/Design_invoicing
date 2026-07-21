@@ -262,9 +262,9 @@
 
 | ID | As a user, I want to… | So that… | Status |
 |---|---|---|---|
-| US-72 | Record a monthly salary payment to an employee with PF/ESI/professional-tax deductions and TDS u/s 192 | My payroll compliance is tracked the same rigor as client-side GST/TDS | 🔲 Not built (depends on US-69) |
-| US-73 | Generate a salary register and Form 16-ready annual data per employee | Year-end filing for staff doesn't mean reconstructing 12 months of payslips by hand | 🔲 Not built (depends on US-72) |
-| US-74 | See total employee/contractor compensation as its own Chart-of-Accounts expense head, feeding the P&L correctly | Payroll spend shows up as a real ledgered expense, not as unexplained bank-reconciliation noise (the household-helper UPI pattern in [[knowledge-bank/Home]] is a live example of this exact gap today) | 🔲 Not built (depends on Epic 12 for real P&L, US-69–US-72) |
+| US-72 | Record a monthly salary payment to an employee with PF/ESI/professional-tax deductions and TDS u/s 192 | My payroll compliance is tracked the same rigor as client-side GST/TDS | ✅ Built — PF (12%) and ESI (0.75%, wage-ceiling checked) computed from fixed statutory formulas; Professional Tax and TDS u/s 192 are deliberately manual entry (state-varying / regime-dependent, not something this app computes) |
+| US-73 | Generate a salary register and Form 16-ready annual data per employee | Year-end filing for staff doesn't mean reconstructing 12 months of payslips by hand | ✅ Built (Payees → Payments tab → Export Salary Register) — per-payslip CSV, not a Form 16 PDF template |
+| US-74 | See total employee/contractor compensation as its own Chart-of-Accounts expense head, feeding the P&L correctly | Payroll spend shows up as a real ledgered expense, not as unexplained bank-reconciliation noise (the household-helper UPI pattern in [[knowledge-bank/Home]] is a live example of this exact gap today) | ✅ Built — every payee payment posts to Salary & Wages (Epic 12), with PF/ESI/PT/TDS split to their own new liability accounts, feeding Financial Statements' P&L correctly |
 
 ---
 
