@@ -5,6 +5,8 @@ import { categorize, fetchRules, extractSignal } from "@/lib/categorize"
 import { parseCsvBank } from "@/lib/parsers/csv-bank"
 import { parseXlsBank } from "@/lib/parsers/xls-bank"
 import { parsePdfBank } from "@/lib/parsers/pdf-bank"
+import { extractBankTransactionsWithGemini } from "@/lib/parsers/bank-ai"
+import * as XLSX from "xlsx"
 
 export const maxDuration = 60
 
@@ -55,6 +57,15 @@ export async function POST(request: NextRequest) {
       rows = parseXlsBank(buffer)
     } else {
       rows = await parsePdfBank(buffer)
+    }
+
+    // Gemini fallback only fires when the deterministic parser found nothing —
+    // i.e. this statement's layout doesn't match any known bank format.
+    let usedGeminiFallback = false
+    if (rows.length === 0) {
+      const rawText = await extractRawText(ext, buffer)
+      rows = await extractBankTransactionsWithGemini(rawText)
+      usedGeminiFallback = rows.length > 0
     }
 
     if (rows.length === 0) {
@@ -125,6 +136,7 @@ export async function POST(request: NextRequest) {
       total: rows.length,
       batchId,
       autoMatched: 0, // Reconciliation is now a separate step — use the Reconcile button
+      usedGeminiFallback,
     })
   } catch (error) {
     console.error("[bank-statements/upload] Error:", error)
@@ -133,4 +145,18 @@ export async function POST(request: NextRequest) {
       { status: 500 },
     )
   }
+}
+
+// Best-effort plain text for the Gemini fallback — only reached once the
+// deterministic parser for this format has already found zero rows.
+async function extractRawText(ext: string, buffer: Buffer): Promise<string> {
+  if (ext === "csv") return buffer.toString("utf-8")
+  if (ext === "pdf") {
+    const pdfParse = (await import("pdf-parse/lib/pdf-parse.js")).default
+    return (await pdfParse(buffer)).text
+  }
+  // xls/xlsx — convert the first sheet to CSV text
+  const workbook = XLSX.read(buffer, { type: "buffer" })
+  const firstSheet = workbook.SheetNames[0]
+  return firstSheet ? XLSX.utils.sheet_to_csv(workbook.Sheets[firstSheet]) : ""
 }

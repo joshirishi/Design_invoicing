@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Upload, FileText, CheckCircle2, AlertCircle, Loader2, Sparkles, RotateCcw } from "lucide-react"
+import { Upload, FileText, CheckCircle2, AlertCircle, Loader2, Sparkles, RotateCcw, Bot } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { DOC_REGISTRY, DOC_ORDER } from "@/components/gst-document-checklist"
 
@@ -20,6 +20,7 @@ interface DetectionResult {
   preview: string
   gstDocType?: string
   period?: string | null
+  aiAssisted?: boolean
 }
 
 const UPI_SOURCES = [
@@ -171,7 +172,8 @@ export function DocumentHub({ accounts = [] }: { accounts?: Account[] }) {
     }
   }
 
-  const confidenceBadge = (c: DetectionResult["confidence"]) => {
+  const confidenceBadge = (c: DetectionResult["confidence"], aiAssisted?: boolean) => {
+    if (aiAssisted) return <Badge className="gap-1 bg-indigo-100 text-indigo-800 border-indigo-200 dark:bg-indigo-950 dark:text-indigo-300"><Bot className="h-3 w-3" /> AI best guess — please confirm</Badge>
     if (c === "high") return <Badge className="gap-1 bg-green-100 text-green-800 border-green-200 dark:bg-green-950 dark:text-green-300"><CheckCircle2 className="h-3 w-3" /> Confident match</Badge>
     if (c === "medium") return <Badge className="gap-1 bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950 dark:text-amber-300">Likely match — please confirm</Badge>
     return <Badge variant="outline">Not sure — please choose</Badge>
@@ -183,8 +185,9 @@ export function DocumentHub({ accounts = [] }: { accounts?: Account[] }) {
         <CardTitle>Add a Document</CardTitle>
         <CardDescription>
           Drop any statement or GST download here — bank statement, UPI export, GSTR-2B JSON, broker Tax P&L, or a
-          GST portal document. It's inspected automatically and routed to the right place; nothing is saved until
-          you confirm.
+          GST portal document. It's inspected automatically and routed to the right place. If the format isn't one
+          we recognise structurally, AI takes a best guess instead of giving up — either way, nothing is saved
+          until you confirm.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -233,7 +236,7 @@ export function DocumentHub({ accounts = [] }: { accounts?: Account[] }) {
                   <p className="text-xs text-muted-foreground">{detection.preview}</p>
                 </div>
               </div>
-              {confidenceBadge(detection.confidence)}
+              {confidenceBadge(detection.confidence, detection.aiAssisted)}
             </div>
 
             <div className="space-y-1.5">

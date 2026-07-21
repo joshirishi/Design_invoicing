@@ -5,6 +5,9 @@ import { parsePdfBank } from "@/lib/parsers/pdf-bank"
 import { parseUpiStatementCsv, parseUpiStatementXls, parseUpiStatementPdf } from "@/lib/parsers/upi-statement"
 import { parseGstr2bJson } from "@/lib/parsers/gstr2b"
 import { parseTaxPnl } from "@/lib/parsers/tax-pnl"
+import { classifyDocumentWithGemini } from "@/lib/parsers/ai-classify"
+import { DOC_REGISTRY } from "@/components/gst-document-checklist"
+import * as XLSX from "xlsx"
 
 export const maxDuration = 60
 
@@ -26,6 +29,8 @@ interface DetectionResult {
   gstDocType?: string
   // Only set when category === "gstr2b"
   period?: string | null
+  // True when a structural check couldn't place the file and Gemini was asked to guess instead.
+  aiAssisted?: boolean
 }
 
 // The 3 electronic ledger CSVs from the GST portal each carry their report
@@ -152,14 +157,49 @@ async function detect(ext: string, buffer: Buffer, fileName: string): Promise<De
     }
   }
 
-  // 6. No confident match — likely a GST portal document we don't parse (GSTR-1/3B/9
-  // acknowledgment, registration certificate, payment challan). Let the user pick.
+  // 6. Nothing matched structurally. Ask Gemini for a best guess rather than
+  // giving up outright — scoped to categories where being wrong just means
+  // re-picking a label (gst_document) or where a proven Gemini extraction
+  // fallback already exists (bank/UPI statements, wired in at upload time).
+  // GSTR-2B and Tax P&L are excluded — those carry real tax/gains figures, not
+  // something to free-text-guess.
+  if (["pdf", "csv", "xls", "xlsx"].includes(ext)) {
+    const text = await extractClassifiableText(ext, buffer)
+    const guess = await classifyDocumentWithGemini(text, fileName)
+    if (guess && guess.category !== "unsupported") {
+      const label =
+        guess.category === "gst_document" && guess.gstDocType
+          ? DOC_REGISTRY[guess.gstDocType]?.label ?? "GST document"
+          : guess.category === "bank_statement"
+            ? "Bank statement"
+            : "UPI app statement"
+      return {
+        category: guess.category,
+        confidence: "low",
+        label,
+        preview: `AI best guess — ${guess.reasoning} Confirm below before anything is uploaded.`,
+        gstDocType: guess.gstDocType ?? undefined,
+        aiAssisted: true,
+      }
+    }
+  }
+
+  // 7. No confident match, structural or AI — likely a format nothing here
+  // recognises. Let the user pick.
   return {
     category: "unknown",
     confidence: "low",
     label: "Couldn't auto-detect",
     preview: "Looks like a filed-return acknowledgment, certificate, or challan — please choose the document type.",
   }
+}
+
+async function extractClassifiableText(ext: string, buffer: Buffer): Promise<string> {
+  if (ext === "csv") return buffer.toString("utf-8")
+  if (ext === "pdf") return safePdfText(buffer, 6000)
+  const workbook = XLSX.read(buffer, { type: "buffer" })
+  const firstSheet = workbook.SheetNames[0]
+  return firstSheet ? XLSX.utils.sheet_to_csv(workbook.Sheets[firstSheet]).slice(0, 6000) : ""
 }
 
 async function safePdfText(buffer: Buffer, maxChars: number): Promise<string> {
