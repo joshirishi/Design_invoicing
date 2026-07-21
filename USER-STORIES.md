@@ -318,6 +318,27 @@
 | US-83 | See what the platform thinks a dropped file is, with a preview of what was found, before anything is saved | I can catch a misclassification instead of financial data silently landing in the wrong place | ✅ Built — confidence badge (confident / likely / not sure) + override dropdown; nothing is uploaded until "Confirm & Upload" |
 | US-84 | Track the Electronic Cash Ledger, Electronic Credit Ledger, and Electronic Liability Register — the GST portal's own record of cash, ITC, and liability — alongside the existing GSTR-1/3B/9 checklist | I keep the government's own ledgers on file the same way I keep filed returns | ✅ Built — added to the GST Document Checklist registry; detected automatically by report title, stored (not yet parsed for reconciliation — a follow-up) |
 | US-85 | Have AI take a best guess at what a file is when none of the structural checks recognise it, instead of just being told "unknown" | An odd-format statement or GST doc still gets routed somewhere useful | ✅ Built — Gemini fallback only fires after every structural check (GSTR-2B schema, Tax P&L sheet names, GST ledger title match, bank/UPI row parsing) has already failed, mirroring the existing PhonePe-PDF Gemini fallback's "deterministic first, AI only on failure" rule. Scoped to bank statements, UPI statements, and GST document labelling — GSTR-2B and Tax P&L stay strictly deterministic since those carry real tax/capital-gains figures an AI guess shouldn't touch. Bank statements also gained their own Gemini row-extraction fallback (`lib/parsers/bank-ai.ts`), extending the pattern UPI statements already had. Every AI-assisted guess is visibly flagged and still requires explicit confirmation before upload |
+| US-86 | Drop several files into Documents at once instead of one at a time | I don't have to repeat the same upload flow for every statement I have on hand | ✅ Built — multi-file drop/select, each file detected independently (sequentially, to avoid bursting the Gemini fallback) |
+| US-87 | See an editable report of what each dropped file was detected as before anything is processed, and fix any of them | I catch a misclassification across a whole batch at a glance, not one popup at a time | ✅ Built — per-file row with confidence/AI badge, editable category + contextual fields (account, UPI app, GST doc type), inline retry on failure |
+| US-88 | Process a whole batch of documents in one action, with each one landing in its own respective place | Bulk upload actually saves time instead of just batching the clicking | ✅ Built — "Confirm & Upload All" processes each row through its already-existing endpoint (bank transactions, UPI lookup, GSTR-2B, capital gains, GST document records) with per-row success/failure shown inline; a single failure doesn't block the rest of the batch |
+
+---
+
+## Epic 22: Navigation & Information Architecture Cleanup
+
+> Noor IA pass, 2026-07-21: the nav had grown to 17 flat top-level items (one per epic shipped),
+> and worse — three screens each had their own upload widget duplicating what the new Document
+> Hub (Epic 21) was built to consolidate. A user could upload the same bank statement from
+> Documents or from Reconciliation and get two different mental models of where the data went.
+> This epic groups navigation and removes the duplicate entry points without removing any
+> capability.
+
+| ID | As a user, I want to… | So that… | Status |
+|---|---|---|---|
+| US-89 | See navigation grouped into task-based sections (Overview, Sales, Purchases & Payroll, Bank & Documents, Compliance, Books) instead of 17 flat items | I can scan for where something lives instead of reading a long list top to bottom | ✅ Built — `dashboard-layout.tsx` grouped nav, every destination still reachable in the same number of clicks |
+| US-90 | Have Dashboard and Account Summary stop competing as two separate "home" screens | I'm not choosing between two similar summaries every time I land in the app | ✅ Built — Account Summary is reached from a link on Dashboard rather than its own nav item; Dashboard stays the single glance screen |
+| US-91 | Reach Invoice Templates from within Invoices rather than as its own nav destination | Template selection reads as part of making an invoice, not a separate task | ✅ Built — tab bar (`InvoiceSectionTabs`) shared between `/dashboard/invoices` and `/dashboard/invoices/templates` |
+| US-92 | Have exactly one place to upload a bank statement, UPI export, or broker Tax P&L, instead of the same widget duplicated on Reconciliation/Capital Gains/Documents | I don't wonder whether uploading from one screen "counts" less than another | ✅ Built — upload widgets removed from Reconciliation and Capital Gains (both now link out to Documents); GST Report's embedded document checklist replaced with a status link to the same Documents page |
 
 ---
 

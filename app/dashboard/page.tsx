@@ -135,6 +135,12 @@ export default async function DashboardPage() {
               <p className="text-muted-foreground">Welcome back! Here&apos;s an overview of your business.</p>
             </div>
             <div className="flex items-center gap-2">
+              <Link href="/dashboard/account-summary">
+                <Button size="sm" variant="ghost">
+                  <LineChart className="h-4 w-4 mr-1" />
+                  View full Account Summary
+                </Button>
+              </Link>
               <Link href="/dashboard/invoices/new">
                 <Button size="sm">
                   <Plus className="h-4 w-4 mr-1" />

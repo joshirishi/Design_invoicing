@@ -6,6 +6,7 @@ import Link from "next/link"
 import { InvoiceList } from "@/components/invoice-list"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { InvoiceImportModal } from "@/components/invoice-import-modal"
+import { InvoiceSectionTabs } from "@/components/invoice-section-tabs"
 
 export const dynamic = "force-dynamic"
 
@@ -33,6 +34,8 @@ export default async function InvoicesPage() {
               </Link>
             </div>
           </div>
+
+          <InvoiceSectionTabs />
 
           <InvoiceList invoices={invoices} />
         </div>

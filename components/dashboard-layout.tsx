@@ -3,30 +3,64 @@
 import type React from "react"
 
 import { Button } from "@/components/ui/button"
-import { FileText, Users, DollarSign, BarChart3, Upload, Settings, Menu, Receipt, ShoppingBag, PieChart, LogOut, Paintbrush, Store, BookOpen, ArrowDownToLine, UserCog, TrendingUp, ScrollText, CalendarClock, FolderOpen } from "lucide-react"
+import { FileText, Users, DollarSign, BarChart3, Upload, Settings, Menu, Receipt, ShoppingBag, LogOut, Store, BookOpen, ArrowDownToLine, UserCog, TrendingUp, ScrollText, CalendarClock, FolderOpen } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { createBrowserClient } from "@/lib/supabase-auth"
 
-const navigation = [
-  { name: "Dashboard",         href: "/dashboard",                         icon: BarChart3       },
-  { name: "Account Summary",   href: "/dashboard/account-summary",         icon: PieChart        },
-  { name: "Documents",         href: "/dashboard/documents",               icon: FolderOpen      },
-  { name: "Invoices",          href: "/dashboard/invoices",                icon: FileText        },
-  { name: "Invoice Templates", href: "/dashboard/invoices/templates",      icon: Paintbrush      },
-  { name: "Clients",           href: "/dashboard/clients",                 icon: Users           },
-  { name: "Payments",          href: "/dashboard/payments",                icon: DollarSign      },
-  { name: "Purchases",         href: "/dashboard/purchases",               icon: ShoppingBag     },
-  { name: "Vendors",           href: "/dashboard/vendors",                 icon: Store           },
-  { name: "Payees",            href: "/dashboard/payees",                  icon: UserCog         },
-  { name: "Capital Gains",     href: "/dashboard/capital-gains",           icon: TrendingUp      },
-  { name: "Reconciliation",    href: "/dashboard/reconciliation",          icon: Upload          },
-  { name: "GST Report",        href: "/dashboard/gst-report",              icon: Receipt         },
-  { name: "Tally Export",      href: "/dashboard/tally-export",            icon: ArrowDownToLine },
-  { name: "Chart of Accounts", href: "/dashboard/ledger",                  icon: BookOpen        },
-  { name: "Financial Statements", href: "/dashboard/financial-statements", icon: ScrollText      },
-  { name: "Advance Tax",       href: "/dashboard/advance-tax",             icon: CalendarClock   },
+// Grouped nav — 6 sections instead of 17 flat items. Each item stays reachable
+// in exactly 2 clicks (group is always expanded, not a second navigation step).
+// Account Summary and Invoice Templates deliberately don't have top-level
+// entries here: Account Summary is a drill-down reached from Dashboard, and
+// Templates is a tab inside Invoices — both are one interaction away from
+// their parent screen instead of competing for space in primary nav.
+const navGroups = [
+  {
+    label: "Overview",
+    items: [
+      { name: "Dashboard", href: "/dashboard", icon: BarChart3 },
+    ],
+  },
+  {
+    label: "Sales",
+    items: [
+      { name: "Invoices", href: "/dashboard/invoices", icon: FileText },
+      { name: "Clients", href: "/dashboard/clients", icon: Users },
+      { name: "Payments", href: "/dashboard/payments", icon: DollarSign },
+    ],
+  },
+  {
+    label: "Purchases & Payroll",
+    items: [
+      { name: "Purchases", href: "/dashboard/purchases", icon: ShoppingBag },
+      { name: "Vendors", href: "/dashboard/vendors", icon: Store },
+      { name: "Payees", href: "/dashboard/payees", icon: UserCog },
+    ],
+  },
+  {
+    label: "Bank & Documents",
+    items: [
+      { name: "Reconciliation", href: "/dashboard/reconciliation", icon: Upload },
+      { name: "All Documents", href: "/dashboard/documents", icon: FolderOpen },
+      { name: "Capital Gains", href: "/dashboard/capital-gains", icon: TrendingUp },
+    ],
+  },
+  {
+    label: "Compliance",
+    items: [
+      { name: "GST Report", href: "/dashboard/gst-report", icon: Receipt },
+      { name: "Advance Tax", href: "/dashboard/advance-tax", icon: CalendarClock },
+      { name: "Tally Export", href: "/dashboard/tally-export", icon: ArrowDownToLine },
+    ],
+  },
+  {
+    label: "Books",
+    items: [
+      { name: "Chart of Accounts", href: "/dashboard/ledger", icon: BookOpen },
+      { name: "Financial Statements", href: "/dashboard/financial-statements", icon: ScrollText },
+    ],
+  },
 ]
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -45,18 +79,27 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         <FileText className="h-6 w-6" />
         <span className="text-xl font-bold">InvoiceFlow</span>
       </div>
-      <nav className="flex-1 px-4 py-6 space-y-1">
-        {navigation.map((item) => {
-          const isActive = pathname === item.href || pathname?.startsWith(item.href + "/")
-          return (
-            <Link key={item.name} href={item.href}>
-              <Button variant={isActive ? "secondary" : "ghost"} className="w-full justify-start gap-3" size="default">
-                <item.icon className="h-5 w-5" />
-                {item.name}
-              </Button>
-            </Link>
-          )
-        })}
+      <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-5">
+        {navGroups.map((group) => (
+          <div key={group.label}>
+            <p className="px-3 pb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {group.label}
+            </p>
+            <div className="space-y-1">
+              {group.items.map((item) => {
+                const isActive = pathname === item.href || pathname?.startsWith(item.href + "/")
+                return (
+                  <Link key={item.name} href={item.href}>
+                    <Button variant={isActive ? "secondary" : "ghost"} className="w-full justify-start gap-3" size="default">
+                      <item.icon className="h-5 w-5" />
+                      {item.name}
+                    </Button>
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
       <div className="border-t p-4 space-y-1">
         <Link href="/dashboard/settings">
@@ -90,7 +133,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
               <Menu className="h-6 w-6" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-64 p-0">
+          <SheetContent side="left" className="w-64 p-0 flex flex-col">
             <NavContent />
           </SheetContent>
         </Sheet>

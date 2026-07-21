@@ -7,6 +7,7 @@ import { CanvasTemplatePreview } from "@/components/canvas-template-preview"
 import { TemplateEditor } from "@/components/template-editor"
 import type { TemplateConfig } from "@/lib/template-defaults"
 import { STARTER_TEMPLATES } from "@/lib/template-defaults"
+import { InvoiceSectionTabs } from "@/components/invoice-section-tabs"
 
 interface SavedTemplate {
   id: number
@@ -60,6 +61,8 @@ export default function TemplatesPageClient({ starters, saved: initialSaved }: P
           Design your invoice once, reuse it forever. Pick a starter or build your own from scratch.
         </p>
       </div>
+
+      <InvoiceSectionTabs />
 
       {/* ── Section 1: Your Templates ──────────────────────────────────── */}
       <section>

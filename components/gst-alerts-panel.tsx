@@ -189,7 +189,7 @@ export function GSTAlertsPanel() {
               )}
             </div>
             <div className="flex items-center gap-1 shrink-0">
-              <a href="#gst-checklist">
+              <a href="/dashboard/documents">
                 <Button size="sm" variant="destructive" className="text-xs h-7">
                   Upload Now <ExternalLink className="ml-1 h-3 w-3" />
                 </Button>
@@ -226,7 +226,7 @@ export function GSTAlertsPanel() {
               </p>
             </div>
             <div className="flex items-center gap-1 shrink-0">
-              <a href="#gst-checklist">
+              <a href="/dashboard/documents">
                 <Button size="sm" variant="outline" className="text-xs h-7 border-amber-300 dark:border-amber-700">
                   Upload <ArrowRight className="ml-1 h-3 w-3" />
                 </Button>

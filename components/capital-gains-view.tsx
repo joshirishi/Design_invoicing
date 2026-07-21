@@ -1,13 +1,14 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import Link from "next/link"
 import { fetchFromAPI } from "@/lib/fetch"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Upload, FileText, CheckCircle2, AlertCircle, Loader2, Link2 } from "lucide-react"
-import type { BankAccount, CapitalGainEntry } from "@/lib/types"
+import { FolderOpen, Link2 } from "lucide-react"
+import type { CapitalGainEntry } from "@/lib/types"
 
 const TYPE_COLORS: Record<string, string> = {
   STCG: "bg-amber-50 text-amber-700 border-amber-200",
@@ -28,23 +29,10 @@ function formatINR(n: number): string {
 
 export function CapitalGainsView({
   entries: initial,
-  accounts,
 }: {
   entries: CapitalGainEntry[]
-  accounts: BankAccount[]
 }) {
   const [entries, setEntries] = useState<CapitalGainEntry[]>(initial)
-  const [file, setFile] = useState<File | null>(null)
-  const [accountId, setAccountId] = useState<string>(
-    accounts.find((a) => a.account_type === "demat")?.id
-      ? String(accounts.find((a) => a.account_type === "demat")!.id)
-      : accounts[0]
-        ? String(accounts[0].id)
-        : "",
-  )
-  const [isUploading, setIsUploading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [result, setResult] = useState<{ inserted: number; posted: number; financialYear: string | null } | null>(null)
 
   const [selectedFy, setSelectedFy] = useState<string>("all")
   const [linkingId, setLinkingId] = useState<number | null>(null)
@@ -64,27 +52,6 @@ export function CapitalGainsView({
     },
     { stcg: 0, ltcg: 0 },
   )
-
-  async function handleUpload() {
-    if (!file) { setError("Select a Tax P&L file first"); return }
-    setIsUploading(true); setError(null); setResult(null)
-    try {
-      const formData = new FormData()
-      formData.append("file", file)
-      if (accountId) formData.append("account_id", accountId)
-      const res = await fetch("/api/investment-statements/upload", { method: "POST", body: formData })
-      const json = await res.json()
-      if (!res.ok) { setError(json.error ?? "Upload failed"); return }
-      setResult(json)
-      setFile(null)
-      const fresh = await fetchFromAPI("/api/capital-gains")
-      setEntries(fresh)
-    } catch (e: any) {
-      setError(e.message)
-    } finally {
-      setIsUploading(false)
-    }
-  }
 
   async function openLink(entry: CapitalGainEntry) {
     setLinkingId(entry.id)
@@ -113,67 +80,18 @@ export function CapitalGainsView({
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Upload Broker Tax P&L</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <Card className="bg-muted/30">
+        <CardContent className="flex items-center justify-between gap-4 py-4">
           <p className="text-sm text-muted-foreground">
-            Upload your broker's Tax P&L export (Zerodha-format XLS/XLSX) — Short Term and Long Term
-            realized trades are ingested as capital gains, kept separate from business revenue.
+            Broker Tax P&L exports are uploaded from Documents now — this page shows what's been imported and
+            lets you link each entry to the matching bank credit.
           </p>
-
-          {accounts.length > 1 && (
-            <Select value={accountId} onValueChange={setAccountId}>
-              <SelectTrigger className="max-w-sm"><SelectValue placeholder="Which account?" /></SelectTrigger>
-              <SelectContent>
-                {accounts.map((a) => (
-                  <SelectItem key={a.id} value={String(a.id)}>{a.nickname}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-
-          <label
-            htmlFor="tax-pnl-upload"
-            className="flex flex-col items-center justify-center gap-2 w-full min-h-[100px] border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/40 transition-colors px-4 py-6 text-center"
-          >
-            {file ? (
-              <>
-                <FileText className="h-8 w-8 text-primary" />
-                <span className="text-sm font-medium">{file.name}</span>
-              </>
-            ) : (
-              <>
-                <Upload className="h-8 w-8 text-muted-foreground" />
-                <span className="text-sm font-medium">Drop your Tax P&L export here</span>
-                <span className="text-xs text-muted-foreground">XLS · XLSX</span>
-              </>
-            )}
-            <input
-              id="tax-pnl-upload"
-              type="file"
-              accept=".xls,.xlsx"
-              className="hidden"
-              onChange={(e) => { setFile(e.target.files?.[0] ?? null); setError(null); setResult(null) }}
-            />
-          </label>
-
-          <Button onClick={handleUpload} disabled={!file || isUploading}>
-            {isUploading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Uploading…</> : <><Upload className="h-4 w-4 mr-2" />Upload</>}
-          </Button>
-
-          {error && (
-            <div className="flex items-start gap-2 text-sm text-destructive">
-              <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" /><span>{error}</span>
-            </div>
-          )}
-          {result && (
-            <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400 border rounded-lg p-3 bg-muted/30">
-              <CheckCircle2 className="h-4 w-4 shrink-0" />
-              {result.inserted} trade{result.inserted !== 1 ? "s" : ""} imported for FY{result.financialYear ?? "—"} · {result.posted} posted to your ledger
-            </div>
-          )}
+          <Link href="/dashboard/documents">
+            <Button variant="outline" size="sm" className="shrink-0 gap-2">
+              <FolderOpen className="h-4 w-4" />
+              Add a Tax P&L export
+            </Button>
+          </Link>
         </CardContent>
       </Card>
 

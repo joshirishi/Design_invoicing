@@ -7,10 +7,7 @@ import { CapitalGainsView } from "@/components/capital-gains-view"
 export default async function CapitalGainsPage() {
   const orgId = await getCurrentOrgId()
 
-  const [entries, accounts] = await Promise.all([
-    sql`SELECT * FROM capital_gains_entries WHERE org_id = ${orgId} ORDER BY financial_year DESC, gain_type ASC, symbol ASC`.catch(() => []),
-    sql`SELECT * FROM bank_accounts WHERE org_id = ${orgId} ORDER BY created_at ASC`.catch(() => []),
-  ])
+  const entries = await sql`SELECT * FROM capital_gains_entries WHERE org_id = ${orgId} ORDER BY financial_year DESC, gain_type ASC, symbol ASC`.catch(() => [])
 
   return (
     <div className="space-y-6">
@@ -20,7 +17,7 @@ export default async function CapitalGainsPage() {
           Investment gains from your demat/broker account — kept separate from business revenue for the right ITR schedule
         </p>
       </div>
-      <CapitalGainsView entries={entries as any} accounts={accounts as any} />
+      <CapitalGainsView entries={entries as any} />
     </div>
   )
 }

@@ -1,7 +1,9 @@
-import { BankStatementUpload } from "@/components/bank-statement-upload"
 import { ReconciliationView } from "@/components/reconciliation-view"
 import { BackfillButton } from "@/components/backfill-button"
-import { UpiContactsUpload } from "@/components/upi-contacts-upload"
+import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { FolderOpen } from "lucide-react"
+import Link from "next/link"
 import { sql } from "@/lib/db"
 import { getCurrentOrgId } from "@/lib/get-org"
 
@@ -46,8 +48,20 @@ export default async function ReconciliationPage() {
         <BackfillButton />
       </div>
 
-      <BankStatementUpload accounts={accounts as any} />
-      <UpiContactsUpload />
+      <Card className="bg-muted/30">
+        <CardContent className="flex items-center justify-between gap-4 py-4">
+          <p className="text-sm text-muted-foreground">
+            Bank statements and UPI exports are uploaded from Documents now — this page is for reviewing and
+            matching what's already been imported.
+          </p>
+          <Link href="/dashboard/documents">
+            <Button variant="outline" size="sm" className="shrink-0 gap-2">
+              <FolderOpen className="h-4 w-4" />
+              Add a statement
+            </Button>
+          </Link>
+        </CardContent>
+      </Card>
 
       {/* ReconciliationView fetches transactions client-side with pagination */}
       <ReconciliationView payments={payments as never[]} accounts={accounts as any} />

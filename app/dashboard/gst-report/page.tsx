@@ -2,9 +2,11 @@ export const dynamic = "force-dynamic"
 
 import { GSTReportView } from "@/components/gst-report-view"
 import { GSTOptInBanner } from "@/components/gst-opt-in-banner"
-import { GSTDocumentChecklist } from "@/components/gst-document-checklist"
 import { GSTAlertsPanel } from "@/components/gst-alerts-panel"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { FolderOpen } from "lucide-react"
+import Link from "next/link"
 import { sql } from "@/lib/db"
 import { getCurrentOrgId } from "@/lib/get-org"
 import { Separator } from "@/components/ui/separator"
@@ -54,10 +56,21 @@ export default async function GSTReportPage() {
 
       <Separator />
 
-      {/* Document checklist + upload */}
-      <div id="gst-checklist">
-        <GSTDocumentChecklist />
-      </div>
+      {/* Document status — checklist itself lives in Documents now, this just points there */}
+      <Card className="bg-muted/30">
+        <CardContent className="flex items-center justify-between gap-4 py-4">
+          <p className="text-sm text-muted-foreground">
+            GSTR-1/3B/9, the electronic ledgers, and other compliance documents are uploaded and tracked from
+            Documents now — one place for every file you add to the app.
+          </p>
+          <Link href="/dashboard/documents">
+            <Button variant="outline" size="sm" className="shrink-0 gap-2">
+              <FolderOpen className="h-4 w-4" />
+              Manage documents
+            </Button>
+          </Link>
+        </CardContent>
+      </Card>
 
       <Separator />
 
