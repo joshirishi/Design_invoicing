@@ -177,7 +177,7 @@
 | ID | As a user, I want to… | So that… | Status |
 |---|---|---|---|
 | US-53 | Export a structured GSTR-1 (outward supply) report — B2B invoices grouped by client GSTIN, with HSN, tax, and place-of-supply — ready to paste into the GST portal | I don't have to manually re-shape my invoice data for filing | ✅ Built — B2B (Table 4) and HSN Summary (Table 12) both computed and rendered as tables with CSV export; combined JSON export explicitly flagged as unverified against the portal's actual offline-tool schema, not silently claimed as compliant |
-| US-54 | Reconcile my purchase-side ITC claims against GSTR-2B data | I don't over- or under-claim input credit | 🔲 Not built — GSTR-3B tab now shows ITC per tax head from logged purchases, but nothing to reconcile it against a GSTR-2B download yet |
+| US-54 | Reconcile my purchase-side ITC claims against GSTR-2B data | I don't over- or under-claim input credit | ✅ Built (GST Report → ITC Reconciliation tab) — upload the GSTR-2B JSON, compares against logged Purchases by supplier GSTIN. Parser follows the documented GSTN schema but is unverified against a real download (no sample file available, unlike Zerodha/PhonePe). Also surfaced that 0/13 logged purchases have a vendor GSTIN on file yet, shown as an explicit caveat |
 
 ---
 
